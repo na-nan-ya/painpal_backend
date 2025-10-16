@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "README.md",
+                "file": "design/brainstorming/editing-concepts.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "README"
+              "title": "editing-concepts"
             }
           }
         ]
@@ -171,6 +171,33 @@
   },
   "active": "60ccb8b74e272dda",
   "lastOpenFiles": [
-    "README.md"
+    "context/design/brainstorming/editing-concepts.md/20251016_100323.ecd30f5d.md",
+    "context/design/brainstorming/editing-concepts.md/steps/response.4a104b45.md",
+    "context/design/brainstorming/editing-concepts.md/steps/prompt.cd9deba2.md",
+    "context/design/brainstorming/editing-concepts.md/steps",
+    "context/design/brainstorming/editing-concepts.md/20251016_100222.685be2c4.md",
+    "context/design/brainstorming/editing-concepts.md",
+    "design/background/concept-specifications.md",
+    "design/background/testing-concepts.md",
+    "design/background/implementing-concepts.md",
+    "design/background/concept-design-overview.md",
+    "design/brainstorming/editing-concepts.md",
+    "context/design/brainstorming/editing-concepts.md/20251016_095051.4b141e1e.md",
+    "context/design/brainstorming/editing-concepts.md/steps/response.806baf65.md",
+    "context/design/brainstorming/editing-concepts.md/20251016_095004.5e8984e5.md",
+    "context/design/brainstorming/editing-concepts.md/steps/prompt.e6e507d8.md",
+    "context/design/brainstorming/editing-concepts.md/20251016_094412.9eab3fc0.md",
+    "context/design/brainstorming/editing-concepts.md/steps/_.5df6235d.md",
+    "context/design/brainstorming/editing-concepts.md/steps/response.5e840ef2.md",
+    "context/design/brainstorming/editing-concepts.md/steps/prompt.ca0ba220.md",
+    "context/design/brainstorming/editing-concepts.md/20251016_094259.ca0ba220.md",
+    "ctx",
+    "ctx.tmp-344f656404dba3bf",
+    "README.md",
+    "design/brainstorming/edit-concepts.md",
+    "design/concepts/PainPal/PainPal.md",
+    "design/concepts/PainPal",
+    "context/design/concepts/PainPal/concept_spec.md",
+    "context/design/concepts/PainPal"
   ]
 }
