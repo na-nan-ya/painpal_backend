@@ -1,584 +1,416 @@
 
-# prompt: Test the provided implementation of the BodyMapGeneration concept with Deno based on given testing-concepts instructions and the LikertSurvey test example file.
- 
-[@BodyMapGenTesting](../../../src/concepts/BodyMapGeneration/BodyMapGeneration.ts)
+# prompt: You are given an example Deno test suite for a LikertSurvey concept implementation. Use it as a model for how to structure and phrase tests — including the principles, action requirements, use of testDb(), assertions (assertEquals, assertNotEquals, etc.), and clean test isolation via client.close().Now, write a complete Deno test suite for the given BodyMapGeneration implementation. Expectations: 
+* Follow the LikertSurvey test suite’s structure.
+* Include a top-level “Principle” test that walks through the lifecycle: user creation → map generation → saving → retrieval → deletion.
+* Include smaller “Action” tests for requirements (e.g., generating map twice in one day should fail, saving a map without a user should fail, etc.).
+* Use the same import style
+* End each test with await client.close() in a finally block.
+
+[@BodyMapGenerationConcept](../../../src/concepts/BodyMapGeneration/BodyMapGeneration.ts)
 [@testing-concepts](../../background/testing-concepts.md)
 [@LikertSurveyTesting-Example](../LikertSurvey/testing.md)
 
 # response:
 
-To test the `BodyMapGenerationConcept` implementation with Deno, we'll create a test file that connects to a MongoDB instance, uses Deno's built-in testing utilities, and follows the principles of good concept testing. This includes setting up and tearing down the database state for each test, asserting preconditions and postconditions for each method, and covering various scenarios (e.g., first-time use, repeated actions, error conditions).
-
-We'll simulate the structure and thoroughness of a typical test file, similar to how a `LikertSurvey` test example might be structured.
-
-### Prerequisites:
-
-1.  **Deno**: Ensure Deno is installed on your system.
-2.  **MongoDB Instance**: You need a running MongoDB instance, accessible at `mongodb://localhost:27017` (or modify the connection string in the test file).
-3.  **Project Structure**: Assume your project structure looks something like this:
-
-    ```
-    .
-    ├── src
-    │   └── concepts
-    │       └── BodyMapGeneration
-    │           └── BodyMapGeneration.ts
-    │   └── utils
-    │       ├── database.ts
-    │       └── types.ts
-    └── test
-        └── concepts
-            └── BodyMapGeneration
-                └── BodyMapGeneration.test.ts
-    ```
-
-    Where `src/utils/database.ts` exports `freshID` and `src/utils/types.ts` exports `ID` and `Empty`.
-
-### `src/utils/database.ts` (Example for `freshID`)
-
-If you don't have this, here's a minimal example:
-
 ```typescript
-// src/utils/database.ts
-import { ObjectId } from "npm:mongodb";
-
-export type ID = string; // Using string as ID for simplicity, ObjectId compatible
-
-export function freshID(): ID {
-  return new ObjectId().toHexString();
-}
-```
-
-### `src/utils/types.ts` (Example for `Empty` and `ID`)
-
-If you don't have this, here's a minimal example:
-
-```typescript
-// src/utils/types.ts
-export type Empty = Record<string, never>; // Represents an empty object {}
-export type ID = string; // Example, could be ObjectId, string, number depending on context
-```
-
----
-
-### `test/concepts/BodyMapGeneration/BodyMapGeneration.test.ts`
-
-```typescript
+// test/BodyMapGeneration.test.ts
 import {
-  assert,
   assertEquals,
   assertExists,
   assertNotEquals,
-  assertArrayIncludes,
-} from "https://deno.land/std@0.210.0/assert/mod.ts";
-import {
-  beforeEach,
-  afterEach,
-  describe,
-  it,
-} from "https://deno.land/std@0.210.0/testing/bdd.ts";
+  assert,
+} from "https://deno.land/std@0.217.0/testing/asserts.ts";
 import { MongoClient, Db } from "npm:mongodb";
-import BodyMapGenerationConcept from "../../../src/concepts/BodyMapGeneration/BodyMapGeneration.ts"; // Adjust path as needed
-import { freshID } from "../../../src/utils/database.ts"; // Import freshID
+import { testDb } from "@utils/test/test_db.ts";
 
-// MongoDB client and database instance for the entire test suite
-let client: MongoClient;
-let db: Db;
-let concept: BodyMapGenerationConcept;
+import BodyMapGenerationConcept from "../src/concepts/BodyMapGeneration/BodyMapGeneration.ts";
+import { ID } from "../src/utils/types.ts";
 
-const TEST_DB_NAME = "test_bodymap_generation_db";
-const COLLECTION_PREFIX = "BodyMapGeneration."; // Matches the PREFIX in the concept file
-
-// Helper function to clear all concept-related collections
-async function clearConceptCollections(database: Db) {
-  await database.collection(COLLECTION_PREFIX + "users").deleteMany({});
-  await database.collection(COLLECTION_PREFIX + "maps").deleteMany({});
-  await database.collection(COLLECTION_PREFIX + "system").deleteMany({});
+// Helper function to get a Date object representing midnight of a given date.
+// This is useful for testing `triggerDailyMapGeneration` which compares dates without time.
+function getMidnight(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-// Custom beforeAll/afterAll for Deno's BDD style, as it's not built-in
-function beforeAll(fn: () => Promise<void>) {
-  let executed = false;
-  beforeEach(async () => {
-    if (!executed) {
-      await fn();
-      executed = true;
+Deno.test("BodyMapGeneration", async (test) => {
+  let client: MongoClient | null = null; // Initialize client to null for safety in finally block
+  let db: Db;
+
+  await test.step("Principle: BodyMapGeneration Lifecycle", async () => {
+    try {
+      ({ client, db } = await testDb());
+      const concept = new BodyMapGenerationConcept(db);
+
+      const testUser1Id = "user123_principle" as ID;
+      const testUser2Id = "user456_principle" as ID;
+
+      let firstMapId: ID;
+      let secondMapId: ID;
+      let user1_thirdMapId: ID;
+      let user2_firstMapId: ID;
+      let user2_secondMapId: ID;
+
+      // Action: Initial Map Generation for User 1
+      console.log("Principle: Generating first map for User 1");
+      const generateResult1 = await concept.generateMap({ user: testUser1Id });
+      assertExists(generateResult1, "Expected a result from first generateMap");
+      assert("mapId" in generateResult1, `Error generating map: ${JSON.stringify(generateResult1)}`);
+      firstMapId = generateResult1.mapId;
+      assertExists(firstMapId, "Expected firstMapId to be defined");
+
+      let user1State = await concept.users.findOne({ _id: testUser1Id });
+      assertExists(user1State, "User 1 state should exist after first generation");
+      assertEquals(user1State.currentMapId, firstMapId, "User 1's currentMapId should be the first generated map");
+
+      let map1State = await concept.maps.findOne({ _id: firstMapId });
+      assertExists(map1State, "First map state should exist");
+      assertEquals(map1State.ownerId, testUser1Id, "First map ownerId should match User 1");
+      assertEquals(map1State.isSaved, false, "First map should not be saved initially");
+
+      // Action: Query Current Map for User 1
+      console.log("Principle: Querying current map for User 1");
+      const currentMapResult1 = await concept._getCurrentMap({ user: testUser1Id });
+      assertExists(currentMapResult1);
+      assert("map" in currentMapResult1, `Error getting current map: ${JSON.stringify(currentMapResult1)}`);
+      assertExists(currentMapResult1.map, "Expected to find a current map for User 1");
+      assertEquals(currentMapResult1.map._id, firstMapId, "Queried current map ID should match first map ID");
+      assertEquals(currentMapResult1.map.isSaved, false, "Queried current map should not be saved");
+
+      // Action: Save Current Map for User 1
+      console.log("Principle: Saving current map for User 1");
+      const saveResult1 = await concept.saveMap({ user: testUser1Id });
+      assertExists(saveResult1);
+      assert(!("error" in saveResult1), `Error saving map: ${JSON.stringify(saveResult1)}`);
+
+      map1State = await concept.maps.findOne({ _id: firstMapId });
+      assertExists(map1State, "First map state should still exist after saving");
+      assertEquals(map1State.isSaved, true, "First map should now be saved");
+      user1State = await concept.users.findOne({ _id: testUser1Id });
+      assertEquals(user1State?.currentMapId, firstMapId, "User 1's currentMapId should still point to the first map after manual save");
+
+      // Action: Generate Second Map for User 1 (same day, implicitly saves the previous)
+      console.log("Principle: Generating second map for User 1");
+      const generateResult2 = await concept.generateMap({ user: testUser1Id });
+      assertExists(generateResult2);
+      assert("mapId" in generateResult2, `Error generating second map: ${JSON.stringify(generateResult2)}`);
+      secondMapId = generateResult2.mapId;
+      assertExists(secondMapId, "Expected secondMapId to be defined");
+      assertNotEquals(secondMapId, firstMapId, "Second map ID should be different from first map ID");
+
+      user1State = await concept.users.findOne({ _id: testUser1Id });
+      assertExists(user1State, "User 1 state should exist after second generation");
+      assertEquals(user1State.currentMapId, secondMapId, "User 1's currentMapId should be the second generated map");
+
+      const map2State = await concept.maps.findOne({ _id: secondMapId });
+      assertExists(map2State, "Second map state should exist");
+      assertEquals(map2State.ownerId, testUser1Id, "Second map ownerId should match User 1");
+      assertEquals(map2State.isSaved, false, "Second map should not be saved initially");
+
+      // Verify that the first map is now saved because a new one was generated
+      map1State = await concept.maps.findOne({ _id: firstMapId });
+      assertExists(map1State, "First map state should still exist");
+      assertEquals(map1State.isSaved, true, "First map should implicitly be saved after second generation");
+
+      // Action: Query Saved Maps for User 1
+      console.log("Principle: Querying saved maps for User 1");
+      const savedMapsResult1 = await concept._getSavedMaps({ user: testUser1Id });
+      assertExists(savedMapsResult1);
+      assert("maps" in savedMapsResult1);
+      assertEquals(savedMapsResult1.maps.length, 1, "Expected only one map saved for User 1 (the first one)");
+      assertEquals(savedMapsResult1.maps[0]._id, firstMapId, "Saved map ID should be the first map ID");
+      assertEquals(savedMapsResult1.maps[0].isSaved, true, "Saved map should be marked as saved");
+
+      // Setup for Daily Generation: Generate a map for User 2
+      console.log("Principle: Generating map for User 2 for daily gen setup");
+      const generateResultUser2 = await concept.generateMap({ user: testUser2Id });
+      assertExists(generateResultUser2);
+      assert("mapId" in generateResultUser2, `Error generating map for User 2: ${JSON.stringify(generateResultUser2)}`);
+      user2_firstMapId = generateResultUser2.mapId;
+      assertExists(user2_firstMapId, "Expected user2_firstMapId to be defined");
+
+      const user2State = await concept.users.findOne({ _id: testUser2Id });
+      assertExists(user2State, "User 2 state should exist");
+      assertEquals(user2State.currentMapId, user2_firstMapId, "User 2's currentMapId should be its first map");
+      const user2MapState = await concept.maps.findOne({ _id: user2_firstMapId });
+      assertExists(user2MapState, "User 2's first map state should exist");
+      assertEquals(user2MapState.isSaved, false, "User 2's first map should not be saved initially");
+
+      // Manually set dailyGenerationStatus.lastRunDate to *yesterday* to simulate a new day for the trigger
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1); // Set to yesterday's date
+      await concept.dailyGenerationStatus.insertOne({ _id: "dailyGeneration", lastRunDate: yesterday });
+      console.log(`Principle: Manually set dailyGenerationStatus to yesterday: ${yesterday.toISOString()}`);
+
+      // Action: Trigger Daily Map Generation
+      console.log("Principle: Triggering daily map generation");
+      const triggerResult = await concept.triggerDailyMapGeneration();
+      assertExists(triggerResult);
+      assert(!("error" in triggerResult), `Error triggering daily generation: ${JSON.stringify(triggerResult)}`);
+      console.log("Principle: Daily map generation triggered successfully.");
+
+      // Verify User 1's maps after daily generation
+      console.log("Principle: Verifying User 1's state after daily generation");
+      // User 1's second map should now be saved (due to daily generation creating a new one)
+      const map2StateAfterDaily = await concept.maps.findOne({ _id: secondMapId });
+      assertExists(map2StateAfterDaily, "Second map state should still exist");
+      assertEquals(map2StateAfterDaily.isSaved, true, "User 1's second map should be saved after daily generation");
+
+      // User 1 should have a NEW current map
+      user1State = await concept.users.findOne({ _id: testUser1Id });
+      assertExists(user1State, "User 1 state should exist after daily generation");
+      user1_thirdMapId = user1State.currentMapId!;
+      assertExists(user1_thirdMapId, "User 1 should have a new third map ID");
+      assertNotEquals(user1_thirdMapId, secondMapId, "User 1's third map ID should be different from second map ID");
+
+      const map3User1State = await concept.maps.findOne({ _id: user1_thirdMapId });
+      assertExists(map3User1State, "User 1's third map state should exist");
+      assertEquals(map3User1State.ownerId, testUser1Id, "User 1's third map ownerId should match User 1");
+      assertEquals(map3User1State.isSaved, false, "User 1's third map should not be saved initially");
+
+      // Query saved maps for User 1 again
+      const savedMapsUser1AfterDaily = await concept._getSavedMaps({ user: testUser1Id });
+      assertExists(savedMapsUser1AfterDaily);
+      assert("maps" in savedMapsUser1AfterDaily);
+      assertEquals(savedMapsUser1AfterDaily.maps.length, 2, "User 1 should now have two saved maps");
+      assert(savedMapsUser1AfterDaily.maps.some((m) => m._id === firstMapId), "First map should be in saved list");
+      assert(savedMapsUser1AfterDaily.maps.some((m) => m._id === secondMapId), "Second map should be in saved list");
+
+      // Verify User 2's maps after daily generation
+      console.log("Principle: Verifying User 2's state after daily generation");
+      // User 2's first map should now be saved
+      const user2MapStateAfterDaily = await concept.maps.findOne({ _id: user2_firstMapId });
+      assertExists(user2MapStateAfterDaily, "User 2's first map state should still exist");
+      assertEquals(user2MapStateAfterDaily.isSaved, true, "User 2's first map should be saved after daily generation");
+
+      // User 2 should have a NEW current map
+      const user2StateAfterDaily = await concept.users.findOne({ _id: testUser2Id });
+      assertExists(user2StateAfterDaily, "User 2 state should exist after daily generation");
+      user2_secondMapId = user2StateAfterDaily.currentMapId!;
+      assertExists(user2_secondMapId, "User 2 should have a new second map ID");
+      assertNotEquals(user2_secondMapId, user2_firstMapId, "User 2's second map ID should be different from first map ID");
+
+      const map2User2State = await concept.maps.findOne({ _id: user2_secondMapId });
+      assertExists(map2User2State, "User 2's second map state should exist");
+      assertEquals(map2User2State.ownerId, testUser2Id, "User 2's second map ownerId should match User 2");
+      assertEquals(map2User2State.isSaved, false, "User 2's second map should not be saved initially");
+
+      // Query saved maps for User 2 again
+      const savedMapsUser2AfterDaily = await concept._getSavedMaps({ user: testUser2Id });
+      assertExists(savedMapsUser2AfterDaily);
+      assert("maps" in savedMapsUser2AfterDaily);
+      assertEquals(savedMapsUser2AfterDaily.maps.length, 1, "User 2 should now have one saved map");
+      assert(savedMapsUser2AfterDaily.maps.some((m) => m._id === user2_firstMapId), "User 2's first map should be in saved list");
+
+      // Verify dailyGenerationStatus is updated to today
+      const statusAfterDaily = await concept.dailyGenerationStatus.findOne({ _id: "dailyGeneration" });
+      assertExists(statusAfterDaily, "Daily generation status should exist");
+      assertEquals(getMidnight(statusAfterDaily.lastRunDate).getTime(), getMidnight(new Date()).getTime(), "Daily generation lastRunDate should be today's midnight");
+
+      // Action: Clear Current Map for User 1
+      console.log("Principle: Clearing current map for User 1");
+      const clearResult1 = await concept.clearMap({ user: testUser1Id });
+      assertExists(clearResult1);
+      assert(!("error" in clearResult1), `Error clearing map: ${JSON.stringify(clearResult1)}`);
+
+      user1State = await concept.users.findOne({ _id: testUser1Id });
+      assertExists(user1State, "User 1 state should still exist after clearing map");
+      assertEquals(user1State.currentMapId, null, "User 1's currentMapId should be null after clearing");
+
+      const map3User1StateAfterClear = await concept.maps.findOne({ _id: user1_thirdMapId });
+      assertEquals(map3User1StateAfterClear, null, "User 1's third map should be deleted after clearing");
+
+      // Querying current map should now return null
+      const currentMapResultAfterClear = await concept._getCurrentMap({ user: testUser1Id });
+      assertExists(currentMapResultAfterClear);
+      assert("map" in currentMapResultAfterClear);
+      assertEquals(currentMapResultAfterClear.map, null, "No current map should be found for User 1 after clearing");
+
+    } finally {
+      await client?.close();
     }
   });
-}
 
-function afterAll(fn: () => Promise<void>) {
-  let executed = false;
-  afterEach(async () => {
-    if (!executed) {
-      await fn();
-      executed = true;
+  await test.step("Action: Generating a map for a new user correctly initializes their state", async () => {
+    try {
+      ({ client, db } = await testDb());
+      const concept = new BodyMapGenerationConcept(db);
+      const newUser = "newUser1_action" as ID;
+
+      const generateResult = await concept.generateMap({ user: newUser });
+      assert("mapId" in generateResult, `Error generating map: ${JSON.stringify(generateResult)}`);
+      const newMapId = generateResult.mapId;
+      assertExists(newMapId, "Expected a new map ID for the new user");
+
+      const userState = await concept.users.findOne({ _id: newUser });
+      assertExists(userState, "User state should be created for the new user");
+      assertEquals(userState.currentMapId, newMapId, "New user's currentMapId should point to the generated map");
+
+      const mapState = await concept.maps.findOne({ _id: newMapId });
+      assertExists(mapState, "Map state should be created for the new map");
+      assertEquals(mapState.ownerId, newUser, "New map's ownerId should be the new user");
+      assertEquals(mapState.isSaved, false, "New map should not be saved initially");
+    } finally {
+      await client?.close();
     }
   });
-}
 
-describe("BodyMapGenerationConcept", () => {
-  // Connect to MongoDB once before all tests
-  beforeAll(async () => {
-    client = new MongoClient("mongodb://localhost:27017");
-    await client.connect();
-    db = client.db(TEST_DB_NAME);
-  });
-
-  // Close MongoDB connection once after all tests
-  afterAll(async () => {
-    await client.close();
-  });
-
-  // Clear collections and re-instantiate concept before each test
-  beforeEach(async () => {
-    await clearConceptCollections(db);
-    concept = new BodyMapGenerationConcept(db);
-  });
-
-  it("should initialize collections with correct names", () => {
-    assertExists(concept.users);
-    assertExists(concept.maps);
-    assertExists(concept.dailyGenerationStatus);
-    assertEquals(concept.users.collectionName, COLLECTION_PREFIX + "users");
-    assertEquals(concept.maps.collectionName, COLLECTION_PREFIX + "maps");
-    assertEquals(
-      concept.dailyGenerationStatus.collectionName,
-      COLLECTION_PREFIX + "system",
-    );
-  });
-
-  describe("generateMap", () => {
-    it("should create a new user and map if user does not exist", async () => {
-      const userId = freshID();
-      const result = await concept.generateMap({ user: userId });
-
-      assertExists(result);
-      assert("mapId" in result); // Check for success
-      const mapId = result.mapId;
-      assertExists(mapId);
-
-      // Verify user state
-      const userState = await concept.users.findOne({ _id: userId });
-      assertExists(userState);
-      assertEquals(userState.currentMapId, mapId);
-
-      // Verify map state
-      const mapState = await concept.maps.findOne({ _id: mapId });
-      assertExists(mapState);
-      assertEquals(mapState._id, mapId);
-      assertEquals(mapState.ownerId, userId);
-      assertEquals(mapState.isSaved, false); // New map should not be saved
-      assertEquals(mapState.imageUrl, "default_map_image.png");
-      assert(mapState.creationDate instanceof Date);
-    });
-
-    it("should save the previous map and generate a new one for an existing user", async () => {
-      const userId = freshID();
+  await test.step("Action: Generating a map twice for the same user on the same day updates current and saves previous", async () => {
+    try {
+      ({ client, db } = await testDb());
+      const concept = new BodyMapGenerationConcept(db);
+      const testUser = "testUserGenerateTwice_action" as ID;
 
       // First generation
-      const firstGenResult = await concept.generateMap({ user: userId });
-      assert("mapId" in firstGenResult);
-      const firstMapId = firstGenResult.mapId;
-      let firstMapState = await concept.maps.findOne({ _id: firstMapId });
-      assertEquals(firstMapState?.isSaved, false);
+      const genResult1 = await concept.generateMap({ user: testUser });
+      assert("mapId" in genResult1, `Error generating first map: ${JSON.stringify(genResult1)}`);
+      const mapId1 = genResult1.mapId;
 
-      // Second generation
-      const secondGenResult = await concept.generateMap({ user: userId });
-      assert("mapId" in secondGenResult);
-      const secondMapId = secondGenResult.mapId;
+      let userState = await concept.users.findOne({ _id: testUser });
+      assertEquals(userState?.currentMapId, mapId1, "User's current map should be the first generated map");
+      let mapState1 = await concept.maps.findOne({ _id: mapId1 });
+      assertEquals(mapState1?.isSaved, false, "First map should not be saved initially");
 
-      assertNotEquals(firstMapId, secondMapId); // Should be a new map ID
+      // Second generation immediately after (same day)
+      const genResult2 = await concept.generateMap({ user: testUser });
+      assert("mapId" in genResult2, `Error generating second map: ${JSON.stringify(genResult2)}`);
+      const mapId2 = genResult2.mapId;
+      assertNotEquals(mapId1, mapId2, "Second generated map ID should be different from the first");
 
-      // Verify user state points to the new map
-      const userState = await concept.users.findOne({ _id: userId });
-      assertExists(userState);
-      assertEquals(userState.currentMapId, secondMapId);
+      userState = await concept.users.findOne({ _id: testUser });
+      assertEquals(userState?.currentMapId, mapId2, "User's current map should be updated to the second generated map");
 
-      // Verify the first map is now saved
-      firstMapState = await concept.maps.findOne({ _id: firstMapId });
-      assertEquals(firstMapState?.isSaved, true);
+      mapState1 = await concept.maps.findOne({ _id: mapId1 });
+      assertEquals(mapState1?.isSaved, true, "Previous map (mapId1) should be saved after new map generation");
 
-      // Verify the second map is not saved
-      const secondMapState = await concept.maps.findOne({ _id: secondMapId });
-      assertEquals(secondMapState?.isSaved, false);
-      assertEquals(secondMapState?.ownerId, userId);
-    });
+      const mapState2 = await concept.maps.findOne({ _id: mapId2 });
+      assertEquals(mapState2?.isSaved, false, "Newly generated map (mapId2) should not be saved");
+
+      const savedMaps = await concept._getSavedMaps({ user: testUser });
+      assert("maps" in savedMaps);
+      assertEquals(savedMaps.maps.length, 1, "Expected only the first map to be in the saved list");
+      assertEquals(savedMaps.maps[0]._id, mapId1, "The saved map should be the first generated map");
+    } finally {
+      await client?.close();
+    }
   });
 
-  describe("saveMap", () => {
-    it("should set isSaved to true for the user's current map", async () => {
-      const userId = freshID();
-      const genResult = await concept.generateMap({ user: userId });
+  await test.step("Action: Saving a map fails if user has no current map", async () => {
+    try {
+      ({ client, db } = await testDb());
+      const concept = new BodyMapGenerationConcept(db);
+      const userWithoutMap = "noCurrentMapUser_action" as ID;
+
+      // Attempt to save map for user with no existing record
+      const saveResult1 = await concept.saveMap({ user: userWithoutMap });
+      assert("error" in saveResult1, "Expected an error when saving for a non-existent user");
+      assertExists(saveResult1.error);
+      assert(saveResult1.error.includes("does not have a current map to save"), "Error message should indicate no current map");
+
+      // Create user, generate map, then clear it (currentMapId becomes null)
+      const genResult = await concept.generateMap({ user: userWithoutMap });
       assert("mapId" in genResult);
-      const mapId = genResult.mapId;
+      const clearResult = await concept.clearMap({ user: userWithoutMap });
+      assert(!("error" in clearResult));
 
-      let mapState = await concept.maps.findOne({ _id: mapId });
-      assertEquals(mapState?.isSaved, false);
-
-      const saveResult = await concept.saveMap({ user: userId });
-      assert(!("error" in saveResult)); // Check for success
-
-      mapState = await concept.maps.findOne({ _id: mapId });
-      assertEquals(mapState?.isSaved, true);
-
-      // Ensure user's currentMapId remains unchanged
-      const userState = await concept.users.findOne({ _id: userId });
-      assertEquals(userState?.currentMapId, mapId);
-    });
-
-    it("should return an error if the user has no current map", async () => {
-      const userId = freshID(); // User without any maps
-      const saveResult = await concept.saveMap({ user: userId });
-      assert("error" in saveResult);
-      assertEquals(
-        saveResult.error,
-        `User ${userId} does not have a current map to save.`,
-      );
-    });
-
-    it("should return an error if user exists but currentMapId is null", async () => {
-      const userId = freshID();
-      await concept.users.insertOne({ _id: userId, currentMapId: null });
-
-      const saveResult = await concept.saveMap({ user: userId });
-      assert("error" in saveResult);
-      assertEquals(
-        saveResult.error,
-        `User ${userId} does not have a current map to save.`,
-      );
-    });
+      // Attempt to save map for user with null currentMapId
+      const saveResult2 = await concept.saveMap({ user: userWithoutMap });
+      assert("error" in saveResult2, "Expected an error when saving for a user with null currentMapId");
+      assertExists(saveResult2.error);
+      assert(saveResult2.error.includes("does not have a current map to save"), "Error message should indicate no current map");
+    } finally {
+      await client?.close();
+    }
   });
 
-  describe("clearMap", () => {
-    it("should delete the current map and set user's currentMapId to null", async () => {
-      const userId = freshID();
-      const genResult = await concept.generateMap({ user: userId });
+  await test.step("Action: Clearing a map fails if user has no current map", async () => {
+    try {
+      ({ client, db } = await testDb());
+      const concept = new BodyMapGenerationConcept(db);
+      const userWithoutMap = "noCurrentMapClearUser_action" as ID;
+
+      // Attempt to clear map for user with no existing record
+      const clearResult1 = await concept.clearMap({ user: userWithoutMap });
+      assert("error" in clearResult1, "Expected an error when clearing for a non-existent user");
+      assertExists(clearResult1.error);
+      assert(clearResult1.error.includes("does not have a current map to clear"), "Error message should indicate no current map");
+
+      // Create user, generate map, then clear it (currentMapId becomes null)
+      const genResult = await concept.generateMap({ user: userWithoutMap });
       assert("mapId" in genResult);
-      const mapId = genResult.mapId;
+      const clearResult2 = await concept.clearMap({ user: userWithoutMap }); // This call makes currentMapId null
+      assert(!("error" in clearResult2)); // The first clear operation should succeed
 
-      // Verify map and user state before clearing
-      assertExists(await concept.maps.findOne({ _id: mapId }));
-      const userStateBefore = await concept.users.findOne({ _id: userId });
-      assertEquals(userStateBefore?.currentMapId, mapId);
-
-      const clearResult = await concept.clearMap({ user: userId });
-      assert(!("error" in clearResult)); // Check for success
-
-      // Verify map is deleted
-      assertEquals(await concept.maps.findOne({ _id: mapId }), null);
-
-      // Verify user's currentMapId is null
-      const userStateAfter = await concept.users.findOne({ _id: userId });
-      assertEquals(userStateAfter?.currentMapId, null);
-    });
-
-    it("should return an error if the user has no current map to clear", async () => {
-      const userId = freshID(); // User without any maps
-      const clearResult = await concept.clearMap({ user: userId });
-      assert("error" in clearResult);
-      assertEquals(
-        clearResult.error,
-        `User ${userId} does not have a current map to clear.`,
-      );
-    });
-
-    it("should return an error if user exists but currentMapId is null", async () => {
-      const userId = freshID();
-      await concept.users.insertOne({ _id: userId, currentMapId: null });
-
-      const clearResult = await concept.clearMap({ user: userId });
-      assert("error" in clearResult);
-      assertEquals(
-        clearResult.error,
-        `User ${userId} does not have a current map to clear.`,
-      );
-    });
+      // Attempt to clear map again for user with null currentMapId
+      const clearResult3 = await concept.clearMap({ user: userWithoutMap });
+      assert("error" in clearResult3, "Expected an error when clearing for a user with null currentMapId");
+      assertExists(clearResult3.error);
+      assert(clearResult3.error.includes("does not have a current map to clear"), "Error message should indicate no current map");
+    } finally {
+      await client?.close();
+    }
   });
 
-  describe("_getCurrentMap", () => {
-    it("should return the current map for a user", async () => {
-      const userId = freshID();
-      const genResult = await concept.generateMap({ user: userId });
-      assert("mapId" in genResult);
-      const mapId = genResult.mapId;
+  await test.step("Action: Daily map generation fails if run twice on the same calendar day", async () => {
+    try {
+      ({ client, db } = await testDb());
+      const concept = new BodyMapGenerationConcept(db);
+      const testUser = "userForDailyGenCheck_action" as ID;
 
-      const currentMapResult = await concept._getCurrentMap({ user: userId });
-      assert("map" in currentMapResult);
-      assertExists(currentMapResult.map);
-      assertEquals(currentMapResult.map._id, mapId);
-      assertEquals(currentMapResult.map.ownerId, userId);
-      assertEquals(currentMapResult.map.isSaved, false);
-    });
+      // Ensure a user exists so the trigger has something to do
+      await concept.generateMap({ user: testUser });
 
-    it("should return null if user has no current map", async () => {
-      const userId = freshID();
-      const currentMapResult = await concept._getCurrentMap({ user: userId });
-      assert("map" in currentMapResult);
-      assertEquals(currentMapResult.map, null);
-    });
+      // Simulate a previous day's run so the first trigger call is valid for "today"
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      await concept.dailyGenerationStatus.insertOne({ _id: "dailyGeneration", lastRunDate: yesterday });
+
+      // First run on "today"
+      const firstTriggerResult = await concept.triggerDailyMapGeneration();
+      assertExists(firstTriggerResult);
+      assert(!("error" in firstTriggerResult), `First daily trigger failed: ${JSON.stringify(firstTriggerResult)}`);
+
+      const statusAfterFirstRun = await concept.dailyGenerationStatus.findOne({ _id: "dailyGeneration" });
+      assertExists(statusAfterFirstRun);
+      assertEquals(getMidnight(statusAfterFirstRun.lastRunDate).getTime(), getMidnight(new Date()).getTime(), "Daily generation status should be updated to today's midnight after first run");
+
+      // Second run on the "same today"
+      const secondTriggerResult = await concept.triggerDailyMapGeneration();
+      assertExists(secondTriggerResult);
+      assert("error" in secondTriggerResult, "Expected an error for running daily generation twice on the same day");
+      assert(secondTriggerResult.error.includes("already run for today"), "Error message should indicate already run for today");
+    } finally {
+      await client?.close();
+    }
   });
 
-  describe("_getSavedMaps", () => {
-    it("should return an empty array if no saved maps exist for a user", async () => {
-      const userId = freshID();
-      // Generate a map but don't save it
-      await concept.generateMap({ user: userId });
+  await test.step("Action: Daily map generation runs successfully when no users exist", async () => {
+    try {
+      ({ client, db } = await testDb());
+      const concept = new BodyMapGenerationConcept(db);
 
-      const savedMapsResult = await concept._getSavedMaps({ user: userId });
-      assert("maps" in savedMapsResult);
-      assertEquals(savedMapsResult.maps.length, 0);
-    });
+      // Manually set dailyGenerationStatus.lastRunDate to *yesterday* to simulate a new day
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      await concept.dailyGenerationStatus.insertOne({ _id: "dailyGeneration", lastRunDate: yesterday });
 
-    it("should return all saved maps for a user and not the current one", async () => {
-      const userId = freshID();
-      const mapIds = [];
-
-      // Generate and save first map
-      const gen1 = await concept.generateMap({ user: userId });
-      assert("mapId" in gen1);
-      mapIds.push(gen1.mapId);
-      await concept.saveMap({ user: userId });
-
-      // Generate and save second map
-      const gen2 = await concept.generateMap({ user: userId });
-      assert("mapId" in gen2);
-      mapIds.push(gen2.mapId);
-      await concept.saveMap({ user: userId });
-
-      // Generate third map, which remains current (not saved)
-      const gen3 = await concept.generateMap({ user: userId });
-      assert("mapId" in gen3);
-      const currentMapId = gen3.mapId;
-
-      const savedMapsResult = await concept._getSavedMaps({ user: userId });
-      assert("maps" in savedMapsResult);
-      assertEquals(savedMapsResult.maps.length, 2);
-
-      const savedMapIds = savedMapsResult.maps.map((m) => m._id);
-      assertArrayIncludes(savedMapIds, [mapIds[0], mapIds[1]]);
-      assert(!savedMapIds.includes(currentMapId)); // Current map should not be returned as 'saved'
-    });
-  });
-
-  describe("triggerDailyMapGeneration", () => {
-    let originalDate: Date; // To restore Date if we mocked it, or just for reference.
-
-    beforeEach(() => {
-      originalDate = new Date();
-    });
-
-    it("should run for the first time and generate maps for all users, saving existing ones", async () => {
-      const user1 = freshID();
-      const user2 = freshID();
-
-      // Setup user1 with no map
-      await concept.users.insertOne({ _id: user1, currentMapId: null });
-      // Setup user2 with an existing current map
-      const genResult2 = await concept.generateMap({ user: user2 });
-      assert("mapId" in genResult2);
-      const user2InitialMapId = genResult2.mapId;
-
+      // Trigger daily generation
       const triggerResult = await concept.triggerDailyMapGeneration();
-      assert(!("error" in triggerResult));
+      assertExists(triggerResult);
+      assert(!("error" in triggerResult), `Trigger failed even with no users: ${JSON.stringify(triggerResult)}`);
 
-      // Verify daily generation status is updated
-      const status = await concept.dailyGenerationStatus.findOne({
-        _id: "dailyGeneration",
-      });
-      assertExists(status);
-      const lastRunDateMidnight = new Date(
-        status.lastRunDate.getFullYear(),
-        status.lastRunDate.getMonth(),
-        status.lastRunDate.getDate(),
-      );
-      const todayMidnight = new Date(
-        originalDate.getFullYear(),
-        originalDate.getMonth(),
-        originalDate.getDate(),
-      );
-      assertEquals(lastRunDateMidnight.getTime(), todayMidnight.getTime());
+      // Verify dailyGenerationStatus is updated to today
+      const statusAfterDaily = await concept.dailyGenerationStatus.findOne({ _id: "dailyGeneration" });
+      assertExists(statusAfterDaily, "Daily generation status should exist after running");
+      assertEquals(getMidnight(statusAfterDaily.lastRunDate).getTime(), getMidnight(new Date()).getTime(), "Daily generation lastRunDate should be updated to today's midnight");
 
-      // Verify user1 now has a new current map
-      const user1State = await concept.users.findOne({ _id: user1 });
-      assertExists(user1State?.currentMapId);
-      const user1NewMap = await concept.maps.findOne({
-        _id: user1State!.currentMapId,
-      });
-      assertExists(user1NewMap);
-      assertEquals(user1NewMap.isSaved, false);
-
-      // Verify user2's old map is saved and a new one is current
-      const user2State = await concept.users.findOne({ _id: user2 });
-      assertExists(user2State?.currentMapId);
-      assertNotEquals(user2State!.currentMapId, user2InitialMapId);
-
-      const user2OldMap = await concept.maps.findOne({
-        _id: user2InitialMapId,
-      });
-      assertExists(user2OldMap);
-      assertEquals(user2OldMap.isSaved, true);
-
-      const user2NewMap = await concept.maps.findOne({
-        _id: user2State!.currentMapId,
-      });
-      assertExists(user2NewMap);
-      assertEquals(user2NewMap.isSaved, false);
-    });
-
-    it("should not run if already executed today", async () => {
-      // Manually set lastRunDate to "today"
-      const now = new Date();
-      await concept.dailyGenerationStatus.insertOne({
-        _id: "dailyGeneration",
-        lastRunDate: now,
-      });
-
-      const user1 = freshID();
-      await concept.generateMap({ user: user1 });
-      const user1InitialMapId = (await concept.users.findOne({ _id: user1 }))!
-        .currentMapId;
-
-      const triggerResult = await concept.triggerDailyMapGeneration();
-      assert("error" in triggerResult);
-      assertEquals(
-        triggerResult.error,
-        "Daily map generation has already run for today.",
-      );
-
-      // Verify no new maps were generated for user1
-      const user1State = await concept.users.findOne({ _id: user1 });
-      assertEquals(user1State?.currentMapId, user1InitialMapId);
-
-      const mapsCount = await concept.maps.countDocuments({});
-      assertEquals(mapsCount, 1); // Only the initial map should exist
-    });
-
-    it("should run successfully on a new day", async () => {
-      const user1 = freshID();
-      await concept.generateMap({ user: user1 });
-      const user1Day1MapId = (await concept.users.findOne({ _id: user1 }))!
-        .currentMapId;
-
-      // Simulate running "yesterday"
-      const yesterday = new Date(originalDate);
-      yesterday.setDate(originalDate.getDate() - 1);
-      await concept.dailyGenerationStatus.insertOne({
-        _id: "dailyGeneration",
-        lastRunDate: yesterday,
-      });
-
-      const triggerResult = await concept.triggerDailyMapGeneration();
-      assert(!("error" in triggerResult));
-
-      // Verify daily generation status is updated to today
-      const status = await concept.dailyGenerationStatus.findOne({
-        _id: "dailyGeneration",
-      });
-      assertExists(status);
-      const lastRunDateMidnight = new Date(
-        status.lastRunDate.getFullYear(),
-        status.lastRunDate.getMonth(),
-        status.lastRunDate.getDate(),
-      );
-      const todayMidnight = new Date(
-        originalDate.getFullYear(),
-        originalDate.getMonth(),
-        originalDate.getDate(),
-      );
-      assertEquals(lastRunDateMidnight.getTime(), todayMidnight.getTime());
-
-      // Verify user1's old map is saved and a new one is current
-      const user1State = await concept.users.findOne({ _id: user1 });
-      assertExists(user1State?.currentMapId);
-      assertNotEquals(user1State!.currentMapId, user1Day1MapId); // New map generated
-
-      const user1OldMap = await concept.maps.findOne({ _id: user1Day1MapId });
-      assertExists(user1OldMap);
-      assertEquals(user1OldMap.isSaved, true);
-
-      const user1NewMap = await concept.maps.findOne({
-        _id: user1State!.currentMapId,
-      });
-      assertExists(user1NewMap);
-      assertEquals(user1NewMap.isSaved, false);
-
-      const mapsCount = await concept.maps.countDocuments({});
-      assertEquals(mapsCount, 2); // One saved, one current
-    });
-
-    it("should successfully run even if no users exist", async () => {
-      const triggerResult = await concept.triggerDailyMapGeneration();
-      assert(!("error" in triggerResult));
-
-      // Verify daily generation status is updated
-      const status = await concept.dailyGenerationStatus.findOne({
-        _id: "dailyGeneration",
-      });
-      assertExists(status);
-
-      const usersCount = await concept.users.countDocuments({});
-      assertEquals(usersCount, 0);
-      const mapsCount = await concept.maps.countDocuments({});
-      assertEquals(mapsCount, 0);
-    });
-
-    it("should log errors for individual users but complete the daily generation process", async () => {
-      const user1 = freshID();
-      const user2 = freshID();
-
-      // User1 exists with a map
-      await concept.generateMap({ user: user1 });
-      const user1InitialMapId = (await concept.users.findOne({ _id: user1 }))!
-        .currentMapId;
-
-      // User2 has no map
-      await concept.users.insertOne({ _id: user2, currentMapId: null });
-
-      // In a real scenario, we might mock `generateMap` to fail for a specific user.
-      // Here, we verify that both users *attempt* to get maps, and the overall system status is updated.
-      // The `generateMap` method itself has error handling for internal issues.
-      // This test ensures the loop completes and system status updates.
-
-      const triggerResult = await concept.triggerDailyMapGeneration();
-      assert(!("error" in triggerResult)); // Overall result should be success
-
-      // Verify daily generation status is updated
-      const status = await concept.dailyGenerationStatus.findOne({
-        _id: "dailyGeneration",
-      });
-      assertExists(status);
-
-      // Verify user1's old map is saved and new one is current
-      const user1State = await concept.users.findOne({ _id: user1 });
-      assertExists(user1State?.currentMapId);
-      assertNotEquals(user1State!.currentMapId, user1InitialMapId);
-      const user1OldMap = await concept.maps.findOne({ _id: user1InitialMapId });
-      assertEquals(user1OldMap?.isSaved, true);
-
-      // Verify user2 also got a new current map
-      const user2State = await concept.users.findOne({ _id: user2 });
-      assertExists(user2State?.currentMapId);
-      const user2NewMap = await concept.maps.findOne({
-        _id: user2State!.currentMapId,
-      });
-      assertExists(user2NewMap);
-      assertEquals(user2NewMap.isSaved, false);
-    });
+      // Verify no users or maps were created/modified because there were no users to begin with
+      const allUsers = await concept.users.find({}).toArray();
+      assertEquals(allUsers.length, 0, "No users should be created if none existed");
+      const allMaps = await concept.maps.find({}).toArray();
+      assertEquals(allMaps.length, 0, "No maps should be created if no users existed");
+    } finally {
+      await client?.close();
+    }
   });
 });
 ```
-
-### How to Run the Tests:
-
-1.  **Save the files**: Save the `BodyMapGeneration.ts`, `database.ts`, `types.ts`, and `BodyMapGeneration.test.ts` files in their respective paths as shown above.
-2.  **Start MongoDB**: Ensure your MongoDB server is running (e.g., `mongod` command).
-3.  **Run with Deno**: Navigate to your project's root directory in the terminal and run:
-    ```bash
-    deno test --allow-net --allow-read --allow-env test/concepts/BodyMapGeneration/BodyMapGeneration.test.ts
-    ```
-    *   `--allow-net`: Required for network access to MongoDB.
-    *   `--allow-read`: Might be needed if `npm:mongodb` or other modules implicitly read files.
-    *   `--allow-env`: Might be needed if `npm:mongodb` or Deno internally read environment variables (e.g., `HOME` for caching).
-
-This will execute all the tests, connecting to your local MongoDB instance and performing assertions based on the concept's behavior.
