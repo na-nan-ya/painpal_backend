@@ -1,3 +1,11 @@
+---
+timestamp: 'Fri Oct 17 2025 20:18:40 GMT-0400 (Eastern Daylight Time)'
+parent: '[[../20251017_201840.0824ebe4.md]]'
+content_id: de379bbd1ce7c4de47f6e394ab3d2f15c003b15e7940ad9eaff80356b768a621
+---
+
+# prompt: Implement PainLocationScoring
+
 **concept** PainLocationScoring
 **purpose** users can select a region on the body map and rate the pain on a scale of 1 to 10
 **principle** each region on a body map may be assigned a numerical score representing pain intensity
