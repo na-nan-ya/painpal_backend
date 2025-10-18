@@ -480,3 +480,80 @@ Deno.test("PainLocationScoring", async (test) => {
   });
 });
 ```
+
+# prompt: Fix these errors from BodyMapGeneration testing.
+BodyMapGeneration ... Principle: BodyMapGeneration Lifecycle => ./src/concepts/BodyMapGeneration/BodyMapGeneration.test.ts:22:14
+error: AssertionError: Expected actual: "null" to not be null or undefined: User 1 state should exist after initial generation.
+    throw new AssertionError(msg);
+          ^
+    at assertExists (https://jsr.io/@std/assert/1.0.15/exists.ts:29:11)
+    at file:///Users/ananyaganesh/painpal_backend/src/concepts/BodyMapGeneration/BodyMapGeneration.test.ts:81:7
+    at eventLoopTick (ext:core/01_core.js:179:7)
+    at async innerWrapped (ext:cli/40_test.js:181:5)
+    at async exitSanitizer (ext:cli/40_test.js:97:27)
+    at async Object.outerWrapped [as fn] (ext:cli/40_test.js:124:14)
+    at async TestContext.step (ext:cli/40_test.js:511:22)
+    at async file:///Users/ananyaganesh/painpal_backend/src/concepts/BodyMapGeneration/BodyMapGeneration.test.ts:22:3
+
+BodyMapGeneration ... Action: System generates a map for a new user correctly initializes their state => ./src/concepts/BodyMapGeneration/BodyMapGeneration.test.ts:474:14
+error: AssertionError: Expected actual: "null" to not be null or undefined: User state should be created for the new user.
+    throw new AssertionError(msg);
+          ^
+    at assertExists (https://jsr.io/@std/assert/1.0.15/exists.ts:29:11)
+    at file:///Users/ananyaganesh/painpal_backend/src/concepts/BodyMapGeneration/BodyMapGeneration.test.ts:507:7
+    at eventLoopTick (ext:core/01_core.js:179:7)
+    at async innerWrapped (ext:cli/40_test.js:181:5)
+    at async exitSanitizer (ext:cli/40_test.js:97:27)
+    at async Object.outerWrapped [as fn] (ext:cli/40_test.js:124:14)
+    at async TestContext.step (ext:cli/40_test.js:511:22)
+    at async file:///Users/ananyaganesh/painpal_backend/src/concepts/BodyMapGeneration/BodyMapGeneration.test.ts:474:3
+
+BodyMapGeneration ... Action: Generating a map twice for the same user on the same calendar day fails => ./src/concepts/BodyMapGeneration/BodyMapGeneration.test.ts:538:14
+error: AssertionError: Expected actual: "null" to not be null or undefined: User state should exist after initial generation.
+    throw new AssertionError(msg);
+          ^
+    at assertExists (https://jsr.io/@std/assert/1.0.15/exists.ts:29:11)
+    at file:///Users/ananyaganesh/painpal_backend/src/concepts/BodyMapGeneration/BodyMapGeneration.test.ts:558:7
+    at eventLoopTick (ext:core/01_core.js:179:7)
+    at async innerWrapped (ext:cli/40_test.js:181:5)
+    at async exitSanitizer (ext:cli/40_test.js:97:27)
+    at async Object.outerWrapped [as fn] (ext:cli/40_test.js:124:14)
+    at async TestContext.step (ext:cli/40_test.js:511:22)
+    at async file:///Users/ananyaganesh/painpal_backend/src/concepts/BodyMapGeneration/BodyMapGeneration.test.ts:538:3
+
+BodyMapGeneration ... Action: Saving a map fails if user has no current map => ./src/concepts/BodyMapGeneration/BodyMapGeneration.test.ts:610:14
+error: AssertionError: Values are not equal: User's currentMapId should be null after clearing.
+
+
+    [Diff] Actual / Expected
+
+
+-   undefined
++   null
+
+  throw new AssertionError(message);
+        ^
+    at assertEquals (https://jsr.io/@std/assert/1.0.15/equals.ts:65:9)
+    at file:///Users/ananyaganesh/painpal_backend/src/concepts/BodyMapGeneration/BodyMapGeneration.test.ts:652:7
+    at eventLoopTick (ext:core/01_core.js:179:7)
+    at async innerWrapped (ext:cli/40_test.js:181:5)
+    at async exitSanitizer (ext:cli/40_test.js:97:27)
+    at async Object.outerWrapped [as fn] (ext:cli/40_test.js:124:14)
+    at async TestContext.step (ext:cli/40_test.js:511:22)
+    at async file:///Users/ananyaganesh/painpal_backend/src/concepts/BodyMapGeneration/BodyMapGeneration.test.ts:610:3
+
+BodyMapGeneration ... Action: Clearing a map fails if user has no current map => ./src/concepts/BodyMapGeneration/BodyMapGeneration.test.ts:682:14
+error: AssertionError: Initial clear operation should succeed to set currentMapId to null.
+    throw new AssertionError(msg);
+          ^
+    at assert (https://jsr.io/@std/assert/1.0.15/assert.ts:21:11)
+    at file:///Users/ananyaganesh/painpal_backend/src/concepts/BodyMapGeneration/BodyMapGeneration.test.ts:720:7
+    at eventLoopTick (ext:core/01_core.js:179:7)
+    at async innerWrapped (ext:cli/40_test.js:181:5)
+    at async exitSanitizer (ext:cli/40_test.js:97:27)
+    at async Object.outerWrapped [as fn] (ext:cli/40_test.js:124:14)
+    at async TestContext.step (ext:cli/40_test.js:511:22)
+    at async file:///Users/ananyaganesh/painpal_backend/src/concepts/BodyMapGeneration/BodyMapGeneration.test.ts:682:3
+
+[@BodyMapGenerationTest](../../../src/concepts/BodyMapGeneration/BodyMapGeneration.test.ts)
+[@BodyMapGenerationImplementation](../../../src/concepts/BodyMapGeneration/BodyMapGeneration.ts)
