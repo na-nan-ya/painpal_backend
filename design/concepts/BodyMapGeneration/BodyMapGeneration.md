@@ -1,4 +1,4 @@
-**concept** BodyMapGeneration
+**concept** BodyMapGeneration <br />
 **purpose** a body map is saved at the end of each day and a fresh one is created for usage the next day
 **principle** each user has exactly one body map per calendar day, created and stored using date-based association
 
