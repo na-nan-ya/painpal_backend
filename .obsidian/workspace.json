@@ -27,12 +27,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "context/design/concepts/BodyMapGeneration/testing.md/steps/file.f4524ea0.md",
+                "file": "design/tools/api-extraction-from-code.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "file.f4524ea0"
+              "title": "api-extraction-from-code"
             }
           }
         ],
@@ -186,6 +186,7 @@
   },
   "active": "7891d5d4983e370c",
   "lastOpenFiles": [
+    "context/design/concepts/BodyMapGeneration/testing.md/steps/file.f4524ea0.md",
     "context/design/concepts/BodyMapGeneration/testing.md/steps/file.e1c09db4.md",
     "context/design/concepts/BodyMapGeneration/testing.md/steps/response.a87bb9f4.md",
     "design/interesting-moments.md",
@@ -211,7 +212,6 @@
     "design/background/BreakThroughError.md",
     "design/background/concept-design-brief.md",
     "context/design/concepts/BodyMapGeneration/testing.md/steps/response.1bc6c5d2.md",
-    "context/design/concepts/BodyMapGeneration/testing.md/steps/response.00dba682.md",
     "context/src/concepts/BreakThroughTracking/BreakThroughTrackingConcept.test.ts",
     "src/concepts/BreakThroughTracking/BreakThroughTrackingConcept.test.ts",
     "context/design/concepts/BreakThroughTracking/testing.md/steps",
