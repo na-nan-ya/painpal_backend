@@ -2,7 +2,7 @@ import { assertEquals, assertExists, assertNotEquals } from "jsr:@std/assert";
 import { testDb } from "@utils/database.ts";
 import { ID } from "@utils/types.ts";
 import PainLocationScoringConcept from "./PainLocationScoringConcept.ts";
-import BodyMapGenerationConcept from "../BodyMapGeneration/BodyMapGeneration.ts";
+import BodyMapGenerationConcept from "../BodyMapGeneration/BodyMapGenerationConcept.ts";
 
 // Define generic user IDs for testing
 const userA = "user:Alice" as ID;

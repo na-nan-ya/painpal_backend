@@ -6,7 +6,7 @@ import {
 } from "jsr:@std/assert";
 import { Db, MongoClient } from "npm:mongodb";
 import { testDb } from "@utils/database.ts";
-import BodyMapGenerationConcept from "../../../src/concepts/BodyMapGeneration/BodyMapGeneration.ts";
+import BodyMapGenerationConcept from "./BodyMapGenerationConcept.ts";
 import { ID } from "@utils/types.ts";
 
 // Helper function to get a Date object representing midnight of a given date.
