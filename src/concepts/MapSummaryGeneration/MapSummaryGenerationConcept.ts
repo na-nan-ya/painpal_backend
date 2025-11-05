@@ -1,6 +1,7 @@
 import { Collection, Db } from "npm:mongodb";
 import { ID } from "@utils/types.ts";
 import { freshID } from "@utils/database.ts";
+import PDFDocument from "npm:pdfkit@0.15.0";
 
 // Collection prefix to ensure isolation within the database
 const PREFIX = "MapSummaryGeneration" + ".";
@@ -340,6 +341,243 @@ export default class MapSummaryGenerationConcept {
         return {
           error: "Failed to fetch summaries due to an unknown error",
         };
+      }
+    }
+  }
+
+  /**
+   * exportSummaryAsPDF(summaryId: Region): (pdfBuffer: Uint8Array)
+   *
+   * requires: the summary must exist
+   * effects: generates a PDF document containing the summary text and returns it as a Uint8Array buffer
+   */
+  async exportSummaryAsPDF(
+    { summaryId }: { summaryId: Region },
+  ): Promise<{ pdfBuffer: Uint8Array } | { error: string }> {
+    try {
+      // Get the summary
+      const summaryResult = await this._getSummary({ summaryId });
+      if ("error" in summaryResult) {
+        return summaryResult;
+      }
+
+      if (!summaryResult.summary) {
+        return { error: `Summary ${summaryId} does not exist.` };
+      }
+
+      const summary = summaryResult.summary;
+
+      // Create a new PDF document
+      const doc = new PDFDocument({
+        size: "A4",
+        margins: {
+          top: 50,
+          bottom: 50,
+          left: 50,
+          right: 50,
+        },
+      });
+
+      // Collect PDF chunks in memory
+      const chunks: Uint8Array[] = [];
+      doc.on("data", (chunk: Uint8Array) => {
+        chunks.push(chunk);
+      });
+
+      // Add content to the PDF
+      doc.fontSize(20).text("Pain Location Summary Report", {
+        align: "center",
+      });
+
+      doc.moveDown();
+      doc.fontSize(12);
+
+      // Add region name
+      doc.fontSize(16).text(`Region: ${summary.name}`, {
+        underline: true,
+      });
+      doc.moveDown();
+
+      // Add period information
+      const startDateStr = summary.period.start.toLocaleDateString();
+      const endDateStr = summary.period.end.toLocaleDateString();
+      doc.text(`Period: ${startDateStr} to ${endDateStr}`);
+      doc.moveDown();
+
+      // Add statistics
+      doc.text(`Frequency: ${summary.frequency} occurrence(s)`);
+      doc.text(`Median Score: ${summary.medianScore.toFixed(1)}`);
+      doc.moveDown();
+
+      // Add summary text
+      doc.fontSize(14).text("Summary:", {
+        underline: true,
+      });
+      doc.moveDown(0.5);
+      doc.fontSize(12).text(summary.summary, {
+        align: "justify",
+      });
+
+      // Finalize the PDF
+      doc.end();
+
+      // Wait for all chunks to be collected and PDF to finish
+      await new Promise<void>((resolve, reject) => {
+        doc.on("end", () => {
+          resolve();
+        });
+        doc.on("error", reject);
+      });
+
+      // Combine all chunks into a single buffer
+      const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+      const pdfBuffer = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        pdfBuffer.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      return { pdfBuffer };
+    } catch (e) {
+      if (e instanceof Error) {
+        console.error(`Error exporting summary ${summaryId} as PDF:`, e);
+        return { error: `Failed to export PDF: ${e.message}` };
+      } else {
+        console.error(
+          `Unknown error exporting summary ${summaryId} as PDF:`,
+          e,
+        );
+        return { error: "Failed to export PDF due to an unknown error" };
+      }
+    }
+  }
+
+  /**
+   * exportUserSummariesAsPDF(user: User): (pdfBuffer: Uint8Array)
+   *
+   * requires: the user must have at least one summary
+   * effects: generates a PDF document containing all summaries for the user and returns it as a Uint8Array buffer
+   */
+  async exportUserSummariesAsPDF(
+    { user }: { user: User },
+  ): Promise<{ pdfBuffer: Uint8Array } | { error: string }> {
+    try {
+      // Get all summaries for the user
+      const summariesResult = await this._getUserSummaries({ user });
+      if ("error" in summariesResult) {
+        return summariesResult;
+      }
+
+      if (summariesResult.summaries.length === 0) {
+        return {
+          error: `User ${user} does not have any summaries to export.`,
+        };
+      }
+
+      const summaries = summariesResult.summaries;
+
+      // Create a new PDF document
+      const doc = new PDFDocument({
+        size: "A4",
+        margins: {
+          top: 50,
+          bottom: 50,
+          left: 50,
+          right: 50,
+        },
+      });
+
+      // Collect PDF chunks in memory
+      const chunks: Uint8Array[] = [];
+      doc.on("data", (chunk: Uint8Array) => {
+        chunks.push(chunk);
+      });
+
+      // Add title
+      doc.fontSize(20).text("Pain Location Summary Report", {
+        align: "center",
+      });
+      doc.moveDown();
+      doc.fontSize(12).text(`All Regions Summary for User`, {
+        align: "center",
+      });
+      doc.moveDown(2);
+
+      // Add each summary
+      for (let i = 0; i < summaries.length; i++) {
+        const summary = summaries[i];
+
+        // Add page break if not the first summary
+        if (i > 0) {
+          doc.addPage();
+        }
+
+        // Add region name
+        doc.fontSize(16).text(`Region: ${summary.name}`, {
+          underline: true,
+        });
+        doc.moveDown();
+
+        // Add period information
+        const startDateStr = summary.period.start.toLocaleDateString();
+        const endDateStr = summary.period.end.toLocaleDateString();
+        doc.fontSize(12).text(`Period: ${startDateStr} to ${endDateStr}`);
+        doc.moveDown();
+
+        // Add statistics
+        doc.text(`Frequency: ${summary.frequency} occurrence(s)`);
+        doc.text(`Median Score: ${summary.medianScore.toFixed(1)}`);
+        doc.moveDown();
+
+        // Add summary text
+        doc.fontSize(14).text("Summary:", {
+          underline: true,
+        });
+        doc.moveDown(0.5);
+        doc.fontSize(12).text(summary.summary, {
+          align: "justify",
+        });
+
+        // Add separator if not the last summary
+        if (i < summaries.length - 1) {
+          doc.moveDown();
+          doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+          doc.moveDown();
+        }
+      }
+
+      // Finalize the PDF
+      doc.end();
+
+      // Wait for all chunks to be collected and PDF to finish
+      await new Promise<void>((resolve, reject) => {
+        doc.on("end", () => {
+          resolve();
+        });
+        doc.on("error", reject);
+      });
+
+      // Combine all chunks into a single buffer
+      const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+      const pdfBuffer = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        pdfBuffer.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      return { pdfBuffer };
+    } catch (e) {
+      if (e instanceof Error) {
+        console.error(`Error exporting summaries for user ${user} as PDF:`, e);
+        return { error: `Failed to export PDF: ${e.message}` };
+      } else {
+        console.error(
+          `Unknown error exporting summaries for user ${user} as PDF:`,
+          e,
+        );
+        return { error: "Failed to export PDF due to an unknown error" };
       }
     }
   }

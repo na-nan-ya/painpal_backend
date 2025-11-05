@@ -555,4 +555,254 @@ Deno.test("MapSummaryGeneration", async (test) => {
       }
     },
   );
+
+  await test.step(
+    "Action: exportSummaryAsPDF generates valid PDF buffer",
+    async () => {
+      try {
+        [db, client] = await testDb();
+        const summaryConcept = new MapSummaryGenerationConcept(db);
+        const bodyMapConcept = new BodyMapGenerationConcept(db);
+        const painLocationConcept = new PainLocationScoringConcept(db);
+
+        const testUser = "testuser_pdf_action" as ID;
+        const regionName = "left shoulder";
+
+        // Setup: Create map, region, and summary
+        const mapResult = await bodyMapConcept.generateMap({ user: testUser });
+        assert("mapId" in mapResult);
+        const mapId = mapResult.mapId;
+
+        const bodyMapCollection = db.collection("PainLocationScoring.bodyMaps");
+        await bodyMapCollection.insertOne({
+          _id: mapId as any,
+          userId: testUser as any,
+        } as any);
+
+        const regionResult = await painLocationConcept.addRegion({
+          user: testUser,
+          map: mapId,
+          regionName,
+        });
+        assert("region" in regionResult);
+
+        await painLocationConcept.scoreRegion({
+          user: testUser,
+          region: regionResult.region,
+          score: 7,
+        });
+
+        const mapDoc = await db
+          .collection("BodyMapGeneration.maps")
+          .findOne({ _id: mapId });
+        assertExists(mapDoc);
+
+        const period = {
+          start: mapDoc.creationDate,
+          end: new Date(),
+        };
+
+        // Generate and store summary
+        const storeResult = await summaryConcept.generateAndStoreSummary({
+          user: testUser,
+          period,
+          mapSet: [mapId] as ID[],
+          regionName,
+        });
+        assert("summaryId" in storeResult);
+        const summaryId = storeResult.summaryId;
+
+        // Export as PDF
+        const pdfResult = await summaryConcept.exportSummaryAsPDF({
+          summaryId,
+        });
+        assertExists(pdfResult);
+        assert(
+          !("error" in pdfResult),
+          `Error exporting PDF: ${JSON.stringify(pdfResult)}`,
+        );
+        assertExists(pdfResult.pdfBuffer);
+        assert(
+          pdfResult.pdfBuffer.length > 0,
+          "PDF buffer should not be empty",
+        );
+
+        // Verify it's a valid PDF (starts with PDF header)
+        const pdfHeader = new TextDecoder().decode(
+          pdfResult.pdfBuffer.slice(0, 4),
+        );
+        assertEquals(
+          pdfHeader,
+          "%PDF",
+          "PDF buffer should start with PDF header",
+        );
+      } finally {
+        await client?.close();
+      }
+    },
+  );
+
+  await test.step(
+    "Action: exportSummaryAsPDF fails for non-existent summary",
+    async () => {
+      try {
+        [db, client] = await testDb();
+        const summaryConcept = new MapSummaryGenerationConcept(db);
+        const fakeSummaryId = "fake_summary_id" as ID;
+
+        const pdfResult = await summaryConcept.exportSummaryAsPDF({
+          summaryId: fakeSummaryId,
+        });
+        assert(
+          "error" in pdfResult,
+          "Expected error for non-existent summary",
+        );
+        assert(
+          pdfResult.error.includes("does not exist"),
+          "Error message should indicate summary does not exist",
+        );
+      } finally {
+        await client?.close();
+      }
+    },
+  );
+
+  await test.step(
+    "Action: exportUserSummariesAsPDF generates valid PDF for multiple summaries",
+    async () => {
+      try {
+        [db, client] = await testDb();
+        const summaryConcept = new MapSummaryGenerationConcept(db);
+        const bodyMapConcept = new BodyMapGenerationConcept(db);
+        const painLocationConcept = new PainLocationScoringConcept(db);
+
+        const testUser = "testuser_multipdf_action" as ID;
+        const regionName1 = "left shoulder";
+        const regionName2 = "right knee";
+
+        // Setup: Create two maps with different regions
+        const map1Result = await bodyMapConcept.generateMap({ user: testUser });
+        assert("mapId" in map1Result);
+        const map1Id = map1Result.mapId;
+
+        const map2Result = await bodyMapConcept.generateMap({ user: testUser });
+        assert("mapId" in map2Result);
+        const map2Id = map2Result.mapId;
+
+        const bodyMapCollection = db.collection("PainLocationScoring.bodyMaps");
+        await bodyMapCollection.insertOne({
+          _id: map1Id as any,
+          userId: testUser as any,
+        } as any);
+        await bodyMapCollection.insertOne({
+          _id: map2Id as any,
+          userId: testUser as any,
+        } as any);
+
+        // Add regions and scores
+        const region1Result = await painLocationConcept.addRegion({
+          user: testUser,
+          map: map1Id,
+          regionName: regionName1,
+        });
+        assert("region" in region1Result);
+        await painLocationConcept.scoreRegion({
+          user: testUser,
+          region: region1Result.region,
+          score: 7,
+        });
+
+        const region2Result = await painLocationConcept.addRegion({
+          user: testUser,
+          map: map2Id,
+          regionName: regionName2,
+        });
+        assert("region" in region2Result);
+        await painLocationConcept.scoreRegion({
+          user: testUser,
+          region: region2Result.region,
+          score: 5,
+        });
+
+        const map1Doc = await db
+          .collection("BodyMapGeneration.maps")
+          .findOne({ _id: map1Id });
+        assertExists(map1Doc);
+
+        const period = {
+          start: map1Doc.creationDate,
+          end: new Date(),
+        };
+
+        // Generate summaries for both regions
+        const store1Result = await summaryConcept.generateAndStoreSummary({
+          user: testUser,
+          period,
+          mapSet: [map1Id] as ID[],
+          regionName: regionName1,
+        });
+        assert("summaryId" in store1Result);
+
+        const store2Result = await summaryConcept.generateAndStoreSummary({
+          user: testUser,
+          period,
+          mapSet: [map2Id] as ID[],
+          regionName: regionName2,
+        });
+        assert("summaryId" in store2Result);
+
+        // Export all user summaries as PDF
+        const pdfResult = await summaryConcept.exportUserSummariesAsPDF({
+          user: testUser,
+        });
+        assertExists(pdfResult);
+        assert(
+          !("error" in pdfResult),
+          `Error exporting PDF: ${JSON.stringify(pdfResult)}`,
+        );
+        assertExists(pdfResult.pdfBuffer);
+        assert(
+          pdfResult.pdfBuffer.length > 0,
+          "PDF buffer should not be empty",
+        );
+
+        // Verify it's a valid PDF
+        const pdfHeader = new TextDecoder().decode(
+          pdfResult.pdfBuffer.slice(0, 4),
+        );
+        assertEquals(
+          pdfHeader,
+          "%PDF",
+          "PDF buffer should start with PDF header",
+        );
+      } finally {
+        await client?.close();
+      }
+    },
+  );
+
+  await test.step(
+    "Action: exportUserSummariesAsPDF fails when user has no summaries",
+    async () => {
+      try {
+        [db, client] = await testDb();
+        const summaryConcept = new MapSummaryGenerationConcept(db);
+        const testUser = "testuser_nosummaries_action" as ID;
+
+        const pdfResult = await summaryConcept.exportUserSummariesAsPDF({
+          user: testUser,
+        });
+        assert(
+          "error" in pdfResult,
+          "Expected error when user has no summaries",
+        );
+        assert(
+          pdfResult.error.includes("does not have any summaries"),
+          "Error message should indicate user has no summaries",
+        );
+      } finally {
+        await client?.close();
+      }
+    },
+  );
 });

@@ -286,4 +286,42 @@ export default class PainLocationScoringConcept {
       return { error: "Failed to add map for testing." };
     }
   }
+
+  /**
+   * trackMap(user: User, map: Map): Empty
+   *
+   * requires: The map must not already be tracked for any user.
+   * effects: Stores the association between a user and a map. This action is intended to be
+   *          called by a synchronization when an external concept (e.g., BodyMapGeneration) creates a new map.
+   */
+  async trackMap(
+    { user, map }: { user: User; map: Map },
+  ): Promise<Empty | { error: string }> {
+    try {
+      // Precondition check: ensure the map is not already tracked.
+      const alreadyTracked = await this.bodyMaps.findOne({ _id: map });
+      if (alreadyTracked) {
+        // If it's already tracked for the same user, it's idempotent. Otherwise, it's an error.
+        if (String(alreadyTracked.userId) !== String(user)) {
+          return { error: `Map '${map}' is already tracked by another user.` };
+        }
+        return {}; // Already tracked for this user, do nothing.
+      }
+
+      // Store the new map ownership information.
+      await this.bodyMaps.insertOne({ _id: map, userId: user });
+      return {};
+    } catch (e) {
+      if (e instanceof Error) {
+        console.error(`Error tracking map '${map}' for user '${user}':`, e);
+        return { error: `Failed to track map: ${e.message}` };
+      } else {
+        console.error(
+          `Unknown error tracking map '${map}' for user '${user}':`,
+          e,
+        );
+        return { error: "Failed to track map due to an unknown error" };
+      }
+    }
+  }
 }
