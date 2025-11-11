@@ -209,56 +209,15 @@ export const HandleGetUserMapsErrorResponse: Sync = ({ request, error }) => ({
 });
 
 /**
- * Catches an incoming request to get user information by username.
- * 
- * Note: This is an internal query method. For security, we might want to add
- * session validation or restrict access. For now, it's available through Requesting.
- * This sync is used when UserAuthentication._getUser is excluded from passthrough
- * and requests go through the Requesting concept instead.
- */
-export const HandleGetUserRequest: Sync = (
-  { request, username },
-) => ({
-  when: actions(
-    [Requesting.request, { path: "/auth/user/get" }, { request }],
-  ),
-  then: actions(
-    [UserAuthentication._getUser, { username }],
-  ),
-});
-
-/**
- * When _getUser is successful, this sync returns the user data
- * in response to the original request.
- */
-export const HandleGetUserResponse: Sync = ({ request, user }) => ({
-  when: actions(
-    [Requesting.request, { path: "/auth/user/get" }, { request }],
-    [UserAuthentication._getUser, {}, { user }],
-  ),
-  then: actions(
-    [Requesting.respond, { request, user }],
-  ),
-});
-
-/**
- * If _getUser fails, this sync catches the error and sends it back
- * in response to the original request.
- */
-export const HandleGetUserErrorResponse: Sync = ({ request, error }) => ({
-  when: actions(
-    [Requesting.request, { path: "/auth/user/get" }, { request }],
-    [UserAuthentication._getUser, {}, { error }],
-  ),
-  then: actions(
-    [Requesting.respond, { request, error }],
-  ),
-});
-
-/**
- * Note: _getSession is a query method that returns an array and is only used
+ * Note: _getUser and _getSession are query methods that are only used
  * internally with frames.query() for session validation in other syncs.
- * It should not be exposed as a direct API endpoint. If you need to get session
- * information, use the session validation pattern in other syncs or create a
- * separate action method.
+ * They should not be exposed as direct API endpoints.
+ * 
+ * Query methods (starting with `_`) are not instrumented as actions and
+ * cannot be used in sync `then: actions()` clauses. They can only be used
+ * with `frames.query()` in `where` clauses.
+ * 
+ * If you need to expose user or session information via API, create separate
+ * action methods (without the `_` prefix) or use the session validation
+ * pattern in other syncs.
  */
