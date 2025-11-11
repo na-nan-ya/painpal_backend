@@ -94,7 +94,10 @@ Deno.test("UserAuthentication", async (test) => {
       );
       session1Id = loginResult1.session;
 
-      const session1State = await concept._getSession({ session: session1Id });
+      const session1StateArray = await concept._getSession({ session: session1Id });
+      assertExists(session1StateArray);
+      assertEquals(session1StateArray.length, 1, "Expected exactly one session result");
+      const session1State = session1StateArray[0];
       assertExists(session1State);
       assert("session" in session1State);
       assertExists(session1State.session, "Expected session to exist");
@@ -158,9 +161,12 @@ Deno.test("UserAuthentication", async (test) => {
         `Error logging out: ${JSON.stringify(logoutResult1)}`,
       );
 
-      const session1StateAfterLogout = await concept._getSession({
+      const session1StateAfterLogoutArray = await concept._getSession({
         session: session1Id,
       });
+      assertExists(session1StateAfterLogoutArray);
+      assertEquals(session1StateAfterLogoutArray.length, 1, "Expected exactly one session result");
+      const session1StateAfterLogout = session1StateAfterLogoutArray[0];
       assertExists(session1StateAfterLogout);
       assert("session" in session1StateAfterLogout);
       assertExists(
@@ -174,9 +180,12 @@ Deno.test("UserAuthentication", async (test) => {
       );
 
       // Verify User 2's session is still active
-      const session2StateAfterUser1Logout = await concept._getSession({
+      const session2StateAfterUser1LogoutArray = await concept._getSession({
         session: session2Id,
       });
+      assertExists(session2StateAfterUser1LogoutArray);
+      assertEquals(session2StateAfterUser1LogoutArray.length, 1, "Expected exactly one session result");
+      const session2StateAfterUser1Logout = session2StateAfterUser1LogoutArray[0];
       assertExists(session2StateAfterUser1Logout);
       assert("session" in session2StateAfterUser1Logout);
       assertExists(session2StateAfterUser1Logout.session);

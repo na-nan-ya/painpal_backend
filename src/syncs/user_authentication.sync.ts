@@ -110,7 +110,10 @@ export const HandleLogoutRequest: Sync = (
       sessionState,
     });
     // Ensure the session exists and is active before proceeding.
-    return frames.filter(($) => $[sessionState] && $[sessionState].active);
+    return frames.filter(($) => {
+      const sess = $[sessionState] as { active?: boolean } | undefined;
+      return sess && sess.active;
+    });
   },
   then: actions(
     [UserAuthentication.logout, { session }],
@@ -163,8 +166,14 @@ export const HandleGetUserMapsRequest: Sync = (
     });
     // Ensure the session is valid and active before proceeding.
     return frames
-      .filter(($) => $[sessionState] && $[sessionState].active)
-      .map(($) => ({ ...$, [user]: $[sessionState].userId })); // Extract userId as 'user' variable
+      .filter(($) => {
+        const sess = $[sessionState] as { active?: boolean } | undefined;
+        return sess && sess.active;
+      })
+      .map(($) => {
+        const sess = $[sessionState] as { userId: unknown } | undefined;
+        return { ...$, [user]: sess?.userId };
+      });
   },
   then: actions(
     [UserAuthentication.getUserMaps, { user, session }],
@@ -247,49 +256,9 @@ export const HandleGetUserErrorResponse: Sync = ({ request, error }) => ({
 });
 
 /**
- * Catches an incoming request to get session information by session ID.
- * 
- * Note: This is an internal query method. For security, we might want to add
- * session validation or restrict access. For now, it's available through Requesting.
- * This sync is used when UserAuthentication._getSession is excluded from passthrough
- * and requests go through the Requesting concept instead.
+ * Note: _getSession is a query method that returns an array and is only used
+ * internally with frames.query() for session validation in other syncs.
+ * It should not be exposed as a direct API endpoint. If you need to get session
+ * information, use the session validation pattern in other syncs or create a
+ * separate action method.
  */
-export const HandleGetSessionRequest: Sync = (
-  { request, session },
-) => ({
-  when: actions(
-    [Requesting.request, { path: "/auth/session/get" }, { request }],
-  ),
-  then: actions(
-    [UserAuthentication._getSession, { session }],
-  ),
-});
-
-/**
- * When _getSession is successful, this sync returns the session data
- * in response to the original request.
- */
-export const HandleGetSessionResponse: Sync = ({ request, sessionState }) => ({
-  when: actions(
-    [Requesting.request, { path: "/auth/session/get" }, { request }],
-    [UserAuthentication._getSession, {}, { session: sessionState }],
-  ),
-  then: actions(
-    [Requesting.respond, { request, session: sessionState }],
-  ),
-});
-
-/**
- * If _getSession fails, this sync catches the error and sends it back
- * in response to the original request.
- */
-export const HandleGetSessionErrorResponse: Sync = ({ request, error }) => ({
-  when: actions(
-    [Requesting.request, { path: "/auth/session/get" }, { request }],
-    [UserAuthentication._getSession, {}, { error }],
-  ),
-  then: actions(
-    [Requesting.respond, { request, error }],
-  ),
-});
-

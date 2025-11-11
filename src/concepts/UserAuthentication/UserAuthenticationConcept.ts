@@ -257,24 +257,26 @@ export default class UserAuthenticationConcept {
   }
 
   /**
-   * _getSession(session: Session): (session: SessionState | null)
+   * _getSession(session: Session): (session: SessionState | null)[]
    *
-   * effects: Returns the session state for a given session ID, or null if not found.
+   * effects: Returns an array containing the session state for a given session ID, or an array with null if not found.
+   *          This method returns an array to be compatible with frames.query() which expects array returns.
+   *          Returns an empty array on error (which will cause frames to be filtered out).
    */
   async _getSession(
     { session }: { session: Session },
-  ): Promise<{ session: SessionState | null } | { error: string }> {
+  ): Promise<Array<{ session: SessionState | null }>> {
     try {
       const sessionState = await this.sessions.findOne({ _id: session });
-      return { session: sessionState };
+      return [{ session: sessionState }];
     } catch (e) {
       if (e instanceof Error) {
         console.error(`Error fetching session ${session}:`, e);
-        return { error: `Failed to fetch session: ${e.message}` };
       } else {
         console.error(`Unknown error fetching session ${session}:`, e);
-        return { error: "Failed to fetch session due to an unknown error" };
       }
+      // Return empty array on error - frames using this will be filtered out
+      return [];
     }
   }
 }
