@@ -99,24 +99,28 @@ export default class UserAuthenticationConcept {
   }
 
   /**
-   * login(username: String, password: String): (session: Session | null)
+   * login(username: String, password: String): (session: Session | null, user: User | null, username: String | null)
    *
    * requires: a User with the given username exists and password matches the username
-   * effects: returns a new active Session if the password matches, otherwise returns null
+   * effects: returns a new active Session, user ID, and username if the password matches, otherwise returns null values
    */
   async login(
     { username, password }: { username: string; password: string },
-  ): Promise<{ session: Session } | { session: null } | { error: string }> {
+  ): Promise<
+    | { session: Session; user: User; username: string }
+    | { session: null; user: null; username: null }
+    | { error: string }
+  > {
     try {
       // Find user by username
       const user = await this.users.findOne({ username });
       if (!user) {
-        return { session: null };
+        return { session: null, user: null, username: null };
       }
 
       // Check password match
       if (user.password !== password) {
-        return { session: null };
+        return { session: null, user: null, username: null };
       }
 
       // Create new active session
@@ -130,7 +134,11 @@ export default class UserAuthenticationConcept {
 
       await this.sessions.insertOne(newSession);
 
-      return { session: newSessionId };
+      return {
+        session: newSessionId,
+        user: user._id,
+        username: user.username,
+      };
     } catch (e) {
       if (e instanceof Error) {
         console.error(`Error logging in user ${username}:`, e);

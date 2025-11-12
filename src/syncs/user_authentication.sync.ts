@@ -67,16 +67,21 @@ export const HandleLoginRequest: Sync = (
 });
 
 /**
- * When login is successful, this sync responds to the original request with the session ID.
- * If login fails (invalid credentials), it responds with session: null.
+ * When login is successful, this sync responds to the original request with the session ID, user ID, and username.
+ * If login fails (invalid credentials), it responds with session: null, user: null, username: null.
  */
-export const HandleLoginResponse: Sync = ({ request, session }) => ({
+export const HandleLoginResponse: Sync = ({
+  request,
+  session,
+  user,
+  username,
+}) => ({
   when: actions(
     [Requesting.request, { path: "/UserAuthentication/login" }, { request }],
-    [UserAuthentication.login, {}, { session }],
+    [UserAuthentication.login, {}, { session, user, username }],
   ),
   then: actions(
-    [Requesting.respond, { request, session }],
+    [Requesting.respond, { request, session, user, username }],
   ),
 });
 
