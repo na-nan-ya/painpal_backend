@@ -7,12 +7,14 @@ import { Requesting, UserAuthentication } from "@concepts";
  * Note: Registration does not require session validation as it creates new users.
  * This sync is used when UserAuthentication.register is excluded from passthrough
  * and requests go through the Requesting concept instead.
+ * 
+ * Handles requests to /api/UserAuthentication/register (excluded passthrough route).
  */
 export const HandleRegisterRequest: Sync = (
   { request, username, password },
 ) => ({
   when: actions(
-    [Requesting.request, { path: "/auth/register" }, { request }],
+    [Requesting.request, { path: "/UserAuthentication/register", username, password }, { request }],
   ),
   then: actions(
     [UserAuthentication.register, { username, password }],
@@ -24,7 +26,7 @@ export const HandleRegisterRequest: Sync = (
  */
 export const HandleRegisterResponse: Sync = ({ request, user }) => ({
   when: actions(
-    [Requesting.request, { path: "/auth/register" }, { request }],
+    [Requesting.request, { path: "/UserAuthentication/register" }, { request }],
     [UserAuthentication.register, {}, { user }],
   ),
   then: actions(
@@ -38,7 +40,7 @@ export const HandleRegisterResponse: Sync = ({ request, user }) => ({
  */
 export const HandleRegisterErrorResponse: Sync = ({ request, error }) => ({
   when: actions(
-    [Requesting.request, { path: "/auth/register" }, { request }],
+    [Requesting.request, { path: "/UserAuthentication/register" }, { request }],
     [UserAuthentication.register, {}, { error }],
   ),
   then: actions(
@@ -57,7 +59,7 @@ export const HandleLoginRequest: Sync = (
   { request, username, password },
 ) => ({
   when: actions(
-    [Requesting.request, { path: "/auth/login" }, { request }],
+    [Requesting.request, { path: "/UserAuthentication/login", username, password }, { request }],
   ),
   then: actions(
     [UserAuthentication.login, { username, password }],
@@ -70,7 +72,7 @@ export const HandleLoginRequest: Sync = (
  */
 export const HandleLoginResponse: Sync = ({ request, session }) => ({
   when: actions(
-    [Requesting.request, { path: "/auth/login" }, { request }],
+    [Requesting.request, { path: "/UserAuthentication/login" }, { request }],
     [UserAuthentication.login, {}, { session }],
   ),
   then: actions(
@@ -84,7 +86,7 @@ export const HandleLoginResponse: Sync = ({ request, session }) => ({
  */
 export const HandleLoginErrorResponse: Sync = ({ request, error }) => ({
   when: actions(
-    [Requesting.request, { path: "/auth/login" }, { request }],
+    [Requesting.request, { path: "/UserAuthentication/login" }, { request }],
     [UserAuthentication.login, {}, { error }],
   ),
   then: actions(
@@ -103,7 +105,7 @@ export const HandleLogoutRequest: Sync = (
   { request, session, sessionState },
 ) => ({
   when: actions(
-    [Requesting.request, { path: "/auth/logout", session }, { request }],
+    [Requesting.request, { path: "/UserAuthentication/logout", session }, { request }],
   ),
   where: async (frames) => {
     frames = await frames.queryAsync(
@@ -129,7 +131,7 @@ export const HandleLogoutRequest: Sync = (
  */
 export const HandleLogoutResponse: Sync = ({ request }) => ({
   when: actions(
-    [Requesting.request, { path: "/auth/logout" }, { request }],
+    [Requesting.request, { path: "/UserAuthentication/logout" }, { request }],
     [UserAuthentication.logout, {}, {}],
   ),
   then: actions(
@@ -143,7 +145,7 @@ export const HandleLogoutResponse: Sync = ({ request }) => ({
  */
 export const HandleLogoutErrorResponse: Sync = ({ request, error }) => ({
   when: actions(
-    [Requesting.request, { path: "/auth/logout" }, { request }],
+    [Requesting.request, { path: "/UserAuthentication/logout" }, { request }],
     [UserAuthentication.logout, {}, { error }],
   ),
   then: actions(
@@ -162,7 +164,7 @@ export const HandleGetUserMapsRequest: Sync = (
   { request, session, user, sessionState },
 ) => ({
   when: actions(
-    [Requesting.request, { path: "/auth/user/maps", session }, { request }],
+    [Requesting.request, { path: "/UserAuthentication/getUserMaps", session }, { request }],
   ),
   where: async (frames) => {
     frames = await frames.queryAsync(
@@ -194,7 +196,7 @@ export const HandleGetUserMapsRequest: Sync = (
  */
 export const HandleGetUserMapsResponse: Sync = ({ request, maps }) => ({
   when: actions(
-    [Requesting.request, { path: "/auth/user/maps" }, { request }],
+    [Requesting.request, { path: "/UserAuthentication/getUserMaps" }, { request }],
     [UserAuthentication.getUserMaps, {}, { maps }],
   ),
   then: actions(
@@ -208,7 +210,7 @@ export const HandleGetUserMapsResponse: Sync = ({ request, maps }) => ({
  */
 export const HandleGetUserMapsErrorResponse: Sync = ({ request, error }) => ({
   when: actions(
-    [Requesting.request, { path: "/auth/user/maps" }, { request }],
+    [Requesting.request, { path: "/UserAuthentication/getUserMaps" }, { request }],
     [UserAuthentication.getUserMaps, {}, { error }],
   ),
   then: actions(

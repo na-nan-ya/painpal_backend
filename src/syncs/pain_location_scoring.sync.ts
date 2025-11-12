@@ -12,7 +12,7 @@ export const HandleAddRegionRequest: Sync = (
   { request, session, user, sessionState, map, regionName },
 ) => ({
   when: actions(
-    [Requesting.request, { path: "/region/add", session }, { request }],
+    [Requesting.request, { path: "/region/add", session, map, regionName }, { request }],
   ),
   where: async (frames) => {
     frames = await frames.queryAsync(
@@ -32,7 +32,6 @@ export const HandleAddRegionRequest: Sync = (
         const sess = $[sessionState] as { userId: unknown } | undefined;
         return { ...$, [user]: sess?.userId };
       });
-    // Note: map and regionName should be extracted from request.body in the Requesting concept
   },
   then: actions(
     [PainLocationScoring.addRegion, { user, map, regionName }],
@@ -77,7 +76,7 @@ export const HandleScoreRegionRequest: Sync = (
   { request, session, user, sessionState, region, score },
 ) => ({
   when: actions(
-    [Requesting.request, { path: "/region/score", session }, { request }],
+    [Requesting.request, { path: "/region/score", session, region, score }, { request }],
   ),
   where: async (frames) => {
     frames = await frames.queryAsync(
@@ -97,7 +96,6 @@ export const HandleScoreRegionRequest: Sync = (
         const sess = $[sessionState] as { userId: unknown } | undefined;
         return { ...$, [user]: sess?.userId };
       });
-    // Note: region and score should be extracted from request.body in the Requesting concept
   },
   then: actions(
     [PainLocationScoring.scoreRegion, { user, region, score }],
@@ -142,7 +140,7 @@ export const HandleDeleteRegionRequest: Sync = (
   { request, session, user, sessionState, region },
 ) => ({
   when: actions(
-    [Requesting.request, { path: "/region/delete", session }, { request }],
+    [Requesting.request, { path: "/region/delete", session, region }, { request }],
   ),
   where: async (frames) => {
     frames = await frames.queryAsync(
@@ -162,7 +160,6 @@ export const HandleDeleteRegionRequest: Sync = (
         const sess = $[sessionState] as { userId: unknown } | undefined;
         return { ...$, [user]: sess?.userId };
       });
-    // Note: region should be extracted from request.body in the Requesting concept
   },
   then: actions(
     [PainLocationScoring.deleteRegion, { user, region }],
