@@ -92,6 +92,23 @@ Deno.test("UserAuthentication", async (test) => {
         loginResult1.session,
         "Expected session to be non-null for correct credentials",
       );
+      assert(
+        "user" in loginResult1,
+        `Expected user field in login result: ${JSON.stringify(loginResult1)}`,
+      );
+      assertExists(
+        loginResult1.user,
+        "Expected user to be non-null for correct credentials",
+      );
+      assert(
+        "username" in loginResult1,
+        `Expected username field in login result: ${JSON.stringify(loginResult1)}`,
+      );
+      assertEquals(
+        loginResult1.username,
+        testUsername1,
+        "Expected username to match login username",
+      );
       session1Id = loginResult1.session;
 
       const session1StateArray = await concept._getSession({ session: session1Id });
@@ -131,6 +148,24 @@ Deno.test("UserAuthentication", async (test) => {
         loginResultWrong.session,
         null,
         "Session should be null for incorrect password",
+      );
+      assert(
+        "user" in loginResultWrong,
+        "Expected user field in result",
+      );
+      assertEquals(
+        loginResultWrong.user,
+        null,
+        "User should be null for incorrect password",
+      );
+      assert(
+        "username" in loginResultWrong,
+        "Expected username field in result",
+      );
+      assertEquals(
+        loginResultWrong.username,
+        null,
+        "Username should be null for incorrect password",
       );
 
       // Action: Login User 2
