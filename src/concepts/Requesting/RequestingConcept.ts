@@ -283,6 +283,7 @@ export function startRequestingServer(
 
       // 3. Send the response back to the client.
       const { response } = responseArray[0];
+      console.log(`[Requesting] Sending response for path ${actionPath}:`, JSON.stringify(response));
       return c.json(response);
     } catch (e) {
       if (e instanceof Error) {

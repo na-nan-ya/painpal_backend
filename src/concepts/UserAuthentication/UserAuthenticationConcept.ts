@@ -134,11 +134,13 @@ export default class UserAuthenticationConcept {
 
       await this.sessions.insertOne(newSession);
 
-      return {
+      const loginResponse = {
         session: newSessionId,
         user: user._id,
         username: user.username,
       };
+      console.log(`[UserAuthentication] Login successful for user ${username}:`, loginResponse);
+      return loginResponse;
     } catch (e) {
       if (e instanceof Error) {
         console.error(`Error logging in user ${username}:`, e);
