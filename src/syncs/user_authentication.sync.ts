@@ -97,30 +97,17 @@ export const HandleLoginErrorResponse: Sync = ({ request, error }) => ({
 /**
  * Catches an incoming request to logout a user.
  * 
- * Note: This sync validates that the session exists and is active before logging out.
+ * Note: This sync attempts to logout the session. If the session doesn't exist
+ * or isn't active, the logout action will handle the error and return an error response.
  * This sync is used when UserAuthentication.logout is excluded from passthrough
  * and requests go through the Requesting concept instead.
  */
 export const HandleLogoutRequest: Sync = (
-  { request, session, sessionState },
+  { request, session },
 ) => ({
   when: actions(
     [Requesting.request, { path: "/UserAuthentication/logout", session }, { request }],
   ),
-  where: async (frames) => {
-    frames = await frames.queryAsync(
-      UserAuthentication._getSession as unknown as (
-        args: { session: unknown },
-      ) => Promise<Array<{ session: unknown }>>,
-      { session },
-      { sessionState },
-    );
-    // Ensure the session exists and is active before proceeding.
-    return frames.filter(($) => {
-      const sess = $[sessionState] as { active?: boolean } | undefined;
-      return sess && sess.active;
-    });
-  },
   then: actions(
     [UserAuthentication.logout, { session }],
   ),

@@ -43,6 +43,10 @@ export const inclusions: Record<string, string> = {
   // PainLocationScoring - Query methods (validate ownership via validateMapOwnership/validateRegionOwnership)
   "/api/PainLocationScoring/_getRegion": "query that validates region ownership - only returns regions owned by the user",
   "/api/PainLocationScoring/_getRegionsForMap": "query that validates map ownership - only returns regions for user's own maps",
+  
+  // UserAuthentication - Query methods (exposed for frontend to check user/session state)
+  "/api/UserAuthentication/_getUser": "query that returns user state by username - used by frontend for auth state checks",
+  "/api/UserAuthentication/_getSession": "query that returns session state by session ID - used by frontend for session validation",
 };
 
 /**
@@ -80,6 +84,4 @@ export const exclusions: Array<string> = [
   "/api/UserAuthentication/login", // Should go through Requesting concept for logging, auditing, and session management
   "/api/UserAuthentication/logout", // Should go through Requesting concept for logging and session management
   "/api/UserAuthentication/getUserMaps", // Should go through Requesting concept with session validation for proper auth flow
-  "/api/UserAuthentication/_getUser", // Internal state query, should go through proper auth mechanisms
-  "/api/UserAuthentication/_getSession", // Internal state query, should go through proper auth mechanisms
 ];
