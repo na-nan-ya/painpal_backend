@@ -106,9 +106,13 @@ export const HandleLogoutRequest: Sync = (
     [Requesting.request, { path: "/auth/logout", session }, { request }],
   ),
   where: async (frames) => {
-    frames = await frames.query(UserAuthentication._getSession, { session }, {
-      sessionState,
-    });
+    frames = await frames.queryAsync(
+      UserAuthentication._getSession as unknown as (
+        args: { session: unknown },
+      ) => Promise<Array<{ session: unknown }>>,
+      { session },
+      { sessionState },
+    );
     // Ensure the session exists and is active before proceeding.
     return frames.filter(($) => {
       const sess = $[sessionState] as { active?: boolean } | undefined;
@@ -161,9 +165,13 @@ export const HandleGetUserMapsRequest: Sync = (
     [Requesting.request, { path: "/auth/user/maps", session }, { request }],
   ),
   where: async (frames) => {
-    frames = await frames.query(UserAuthentication._getSession, { session }, {
-      sessionState,
-    });
+    frames = await frames.queryAsync(
+      UserAuthentication._getSession as unknown as (
+        args: { session: unknown },
+      ) => Promise<Array<{ session: unknown }>>,
+      { session },
+      { sessionState },
+    );
     // Ensure the session is valid and active before proceeding.
     return frames
       .filter(($) => {

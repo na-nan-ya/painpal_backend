@@ -15,13 +15,23 @@ export const HandleSaveMapRequest: Sync = (
     [Requesting.request, { path: "/map/save", session }, { request }],
   ),
   where: async (frames) => {
-    frames = await frames.query(UserAuthentication._getSession, { session }, {
-      sessionState,
-    });
+    frames = await frames.queryAsync(
+      UserAuthentication._getSession as unknown as (
+        args: { session: unknown },
+      ) => Promise<Array<{ session: unknown }>>,
+      { session },
+      { sessionState },
+    );
     // Ensure the session is valid and active before proceeding.
     return frames
-      .filter(($) => $[sessionState] && $[sessionState].active)
-      .map(($) => ({ ...$, [user]: $[sessionState].userId })); // Extract userId as 'user' variable
+      .filter(($) => {
+        const sess = $[sessionState] as { active?: boolean } | undefined;
+        return sess && sess.active;
+      })
+      .map(($) => {
+        const sess = $[sessionState] as { userId: unknown } | undefined;
+        return { ...$, [user]: sess?.userId };
+      });
   },
   then: actions(
     [BodyMapGeneration.saveMap, { user }],
@@ -69,13 +79,23 @@ export const HandleClearMapRequest: Sync = (
     [Requesting.request, { path: "/map/clear", session }, { request }],
   ),
   where: async (frames) => {
-    frames = await frames.query(UserAuthentication._getSession, { session }, {
-      sessionState,
-    });
+    frames = await frames.queryAsync(
+      UserAuthentication._getSession as unknown as (
+        args: { session: unknown },
+      ) => Promise<Array<{ session: unknown }>>,
+      { session },
+      { sessionState },
+    );
     // Ensure the session is valid and active before proceeding.
     return frames
-      .filter(($) => $[sessionState] && $[sessionState].active)
-      .map(($) => ({ ...$, [user]: $[sessionState].userId })); // Extract userId as 'user' variable
+      .filter(($) => {
+        const sess = $[sessionState] as { active?: boolean } | undefined;
+        return sess && sess.active;
+      })
+      .map(($) => {
+        const sess = $[sessionState] as { userId: unknown } | undefined;
+        return { ...$, [user]: sess?.userId };
+      });
   },
   then: actions(
     [BodyMapGeneration.clearMap, { user }],
@@ -110,112 +130,14 @@ export const HandleClearMapErrorResponse: Sync = ({ request, error }) => ({
 });
 
 /**
- * Catches an incoming request to get the current map, validates the session,
- * and triggers the _getCurrentMap query.
+ * Note: _getCurrentMap and _getSavedMaps are query methods (starting with `_`)
+ * that are included in passthrough routes, meaning they are exposed directly
+ * via the Requesting concept's passthrough mechanism, not through syncs.
  * 
- * Note: This sync is used when BodyMapGeneration._getCurrentMap is excluded from passthrough
- * and requests go through the Requesting concept instead.
- */
-export const HandleGetCurrentMapRequest: Sync = (
-  { request, session, user, sessionState },
-) => ({
-  when: actions(
-    [Requesting.request, { path: "/map/current", session }, { request }],
-  ),
-  where: async (frames) => {
-    frames = await frames.query(UserAuthentication._getSession, { session }, {
-      sessionState,
-    });
-    // Ensure the session is valid and active before proceeding.
-    return frames
-      .filter(($) => $[sessionState] && $[sessionState].active)
-      .map(($) => ({ ...$, [user]: $[sessionState].userId })); // Extract userId as 'user' variable
-  },
-  then: actions(
-    [BodyMapGeneration._getCurrentMap, { user }],
-  ),
-});
-
-/**
- * When _getCurrentMap is successful, this sync returns the map data
- * in response to the original request.
- */
-export const HandleGetCurrentMapResponse: Sync = ({ request, map }) => ({
-  when: actions(
-    [Requesting.request, { path: "/map/current" }, { request }],
-    [BodyMapGeneration._getCurrentMap, {}, { map }],
-  ),
-  then: actions(
-    [Requesting.respond, { request, map }],
-  ),
-});
-
-/**
- * If _getCurrentMap fails, this sync catches the error and sends it back
- * in response to the original request.
- */
-export const HandleGetCurrentMapErrorResponse: Sync = ({ request, error }) => ({
-  when: actions(
-    [Requesting.request, { path: "/map/current" }, { request }],
-    [BodyMapGeneration._getCurrentMap, {}, { error }],
-  ),
-  then: actions(
-    [Requesting.respond, { request, error }],
-  ),
-});
-
-/**
- * Catches an incoming request to get saved maps, validates the session,
- * and triggers the _getSavedMaps query.
+ * Query methods (starting with `_`) are NOT instrumented as actions and
+ * cannot be used in sync `then: actions()` clauses. They can only be used
+ * with `frames.query()` in `where` clauses for internal queries.
  * 
- * Note: This sync is used when BodyMapGeneration._getSavedMaps is excluded from passthrough
- * and requests go through the Requesting concept instead.
+ * Since these methods are in the passthrough inclusions list, they are
+ * handled directly by the Requesting concept and do not need sync handlers.
  */
-export const HandleGetSavedMapsRequest: Sync = (
-  { request, session, user, sessionState },
-) => ({
-  when: actions(
-    [Requesting.request, { path: "/maps/saved", session }, { request }],
-  ),
-  where: async (frames) => {
-    frames = await frames.query(UserAuthentication._getSession, { session }, {
-      sessionState,
-    });
-    // Ensure the session is valid and active before proceeding.
-    return frames
-      .filter(($) => $[sessionState] && $[sessionState].active)
-      .map(($) => ({ ...$, [user]: $[sessionState].userId })); // Extract userId as 'user' variable
-  },
-  then: actions(
-    [BodyMapGeneration._getSavedMaps, { user }],
-  ),
-});
-
-/**
- * When _getSavedMaps is successful, this sync returns the maps data
- * in response to the original request.
- */
-export const HandleGetSavedMapsResponse: Sync = ({ request, maps }) => ({
-  when: actions(
-    [Requesting.request, { path: "/maps/saved" }, { request }],
-    [BodyMapGeneration._getSavedMaps, {}, { maps }],
-  ),
-  then: actions(
-    [Requesting.respond, { request, maps }],
-  ),
-});
-
-/**
- * If _getSavedMaps fails, this sync catches the error and sends it back
- * in response to the original request.
- */
-export const HandleGetSavedMapsErrorResponse: Sync = ({ request, error }) => ({
-  when: actions(
-    [Requesting.request, { path: "/maps/saved" }, { request }],
-    [BodyMapGeneration._getSavedMaps, {}, { error }],
-  ),
-  then: actions(
-    [Requesting.respond, { request, error }],
-  ),
-});
-

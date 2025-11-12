@@ -15,13 +15,23 @@ export const HandleAddRegionRequest: Sync = (
     [Requesting.request, { path: "/region/add", session }, { request }],
   ),
   where: async (frames) => {
-    frames = await frames.query(UserAuthentication._getSession, { session }, {
-      sessionState,
-    });
+    frames = await frames.queryAsync(
+      UserAuthentication._getSession as unknown as (
+        args: { session: unknown },
+      ) => Promise<Array<{ session: unknown }>>,
+      { session },
+      { sessionState },
+    );
     // Ensure the session is valid and active before proceeding.
     return frames
-      .filter(($) => $[sessionState] && $[sessionState].active)
-      .map(($) => ({ ...$, [user]: $[sessionState].userId })); // Extract userId as 'user' variable
+      .filter(($) => {
+        const sess = $[sessionState] as { active?: boolean } | undefined;
+        return sess && sess.active;
+      })
+      .map(($) => {
+        const sess = $[sessionState] as { userId: unknown } | undefined;
+        return { ...$, [user]: sess?.userId };
+      });
     // Note: map and regionName should be extracted from request.body in the Requesting concept
   },
   then: actions(
@@ -70,13 +80,23 @@ export const HandleScoreRegionRequest: Sync = (
     [Requesting.request, { path: "/region/score", session }, { request }],
   ),
   where: async (frames) => {
-    frames = await frames.query(UserAuthentication._getSession, { session }, {
-      sessionState,
-    });
+    frames = await frames.queryAsync(
+      UserAuthentication._getSession as unknown as (
+        args: { session: unknown },
+      ) => Promise<Array<{ session: unknown }>>,
+      { session },
+      { sessionState },
+    );
     // Ensure the session is valid and active before proceeding.
     return frames
-      .filter(($) => $[sessionState] && $[sessionState].active)
-      .map(($) => ({ ...$, [user]: $[sessionState].userId })); // Extract userId as 'user' variable
+      .filter(($) => {
+        const sess = $[sessionState] as { active?: boolean } | undefined;
+        return sess && sess.active;
+      })
+      .map(($) => {
+        const sess = $[sessionState] as { userId: unknown } | undefined;
+        return { ...$, [user]: sess?.userId };
+      });
     // Note: region and score should be extracted from request.body in the Requesting concept
   },
   then: actions(
@@ -125,13 +145,23 @@ export const HandleDeleteRegionRequest: Sync = (
     [Requesting.request, { path: "/region/delete", session }, { request }],
   ),
   where: async (frames) => {
-    frames = await frames.query(UserAuthentication._getSession, { session }, {
-      sessionState,
-    });
+    frames = await frames.queryAsync(
+      UserAuthentication._getSession as unknown as (
+        args: { session: unknown },
+      ) => Promise<Array<{ session: unknown }>>,
+      { session },
+      { sessionState },
+    );
     // Ensure the session is valid and active before proceeding.
     return frames
-      .filter(($) => $[sessionState] && $[sessionState].active)
-      .map(($) => ({ ...$, [user]: $[sessionState].userId })); // Extract userId as 'user' variable
+      .filter(($) => {
+        const sess = $[sessionState] as { active?: boolean } | undefined;
+        return sess && sess.active;
+      })
+      .map(($) => {
+        const sess = $[sessionState] as { userId: unknown } | undefined;
+        return { ...$, [user]: sess?.userId };
+      });
     // Note: region should be extracted from request.body in the Requesting concept
   },
   then: actions(
@@ -167,114 +197,14 @@ export const HandleDeleteRegionErrorResponse: Sync = ({ request, error }) => ({
 });
 
 /**
- * Catches an incoming request to get a specific region, validates the session,
- * and triggers the _getRegion query.
+ * Note: _getRegion and _getRegionsForMap are query methods (starting with `_`)
+ * that are included in passthrough routes, meaning they are exposed directly
+ * via the Requesting concept's passthrough mechanism, not through syncs.
  * 
- * Note: This sync is used when PainLocationScoring._getRegion is excluded from passthrough
- * and requests go through the Requesting concept instead.
- */
-export const HandleGetRegionRequest: Sync = (
-  { request, session, user, sessionState, region },
-) => ({
-  when: actions(
-    [Requesting.request, { path: "/region/get", session }, { request }],
-  ),
-  where: async (frames) => {
-    frames = await frames.query(UserAuthentication._getSession, { session }, {
-      sessionState,
-    });
-    // Ensure the session is valid and active before proceeding.
-    return frames
-      .filter(($) => $[sessionState] && $[sessionState].active)
-      .map(($) => ({ ...$, [user]: $[sessionState].userId })); // Extract userId as 'user' variable
-    // Note: region should be extracted from request.body in the Requesting concept
-  },
-  then: actions(
-    [PainLocationScoring._getRegion, { user, region }],
-  ),
-});
-
-/**
- * When _getRegion is successful, this sync returns the region data
- * in response to the original request.
- */
-export const HandleGetRegionResponse: Sync = ({ request, regions }) => ({
-  when: actions(
-    [Requesting.request, { path: "/region/get" }, { request }],
-    [PainLocationScoring._getRegion, {}, { regions }],
-  ),
-  then: actions(
-    [Requesting.respond, { request, regions }],
-  ),
-});
-
-/**
- * If _getRegion fails, this sync catches the error and sends it back
- * in response to the original request.
- */
-export const HandleGetRegionErrorResponse: Sync = ({ request, error }) => ({
-  when: actions(
-    [Requesting.request, { path: "/region/get" }, { request }],
-    [PainLocationScoring._getRegion, {}, { error }],
-  ),
-  then: actions(
-    [Requesting.respond, { request, error }],
-  ),
-});
-
-/**
- * Catches an incoming request to get all regions for a map, validates the session,
- * and triggers the _getRegionsForMap query.
+ * Query methods (starting with `_`) are NOT instrumented as actions and
+ * cannot be used in sync `then: actions()` clauses. They can only be used
+ * with `frames.query()` in `where` clauses for internal queries.
  * 
- * Note: This sync is used when PainLocationScoring._getRegionsForMap is excluded from passthrough
- * and requests go through the Requesting concept instead.
+ * Since these methods are in the passthrough inclusions list, they are
+ * handled directly by the Requesting concept and do not need sync handlers.
  */
-export const HandleGetRegionsForMapRequest: Sync = (
-  { request, session, user, sessionState, map },
-) => ({
-  when: actions(
-    [Requesting.request, { path: "/regions/map", session }, { request }],
-  ),
-  where: async (frames) => {
-    frames = await frames.query(UserAuthentication._getSession, { session }, {
-      sessionState,
-    });
-    // Ensure the session is valid and active before proceeding.
-    return frames
-      .filter(($) => $[sessionState] && $[sessionState].active)
-      .map(($) => ({ ...$, [user]: $[sessionState].userId })); // Extract userId as 'user' variable
-    // Note: map should be extracted from request.body in the Requesting concept
-  },
-  then: actions(
-    [PainLocationScoring._getRegionsForMap, { user, map }],
-  ),
-});
-
-/**
- * When _getRegionsForMap is successful, this sync returns the regions data
- * in response to the original request.
- */
-export const HandleGetRegionsForMapResponse: Sync = ({ request, regions }) => ({
-  when: actions(
-    [Requesting.request, { path: "/regions/map" }, { request }],
-    [PainLocationScoring._getRegionsForMap, {}, { regions }],
-  ),
-  then: actions(
-    [Requesting.respond, { request, regions }],
-  ),
-});
-
-/**
- * If _getRegionsForMap fails, this sync catches the error and sends it back
- * in response to the original request.
- */
-export const HandleGetRegionsForMapErrorResponse: Sync = ({ request, error }) => ({
-  when: actions(
-    [Requesting.request, { path: "/regions/map" }, { request }],
-    [PainLocationScoring._getRegionsForMap, {}, { error }],
-  ),
-  then: actions(
-    [Requesting.respond, { request, error }],
-  ),
-});
-
